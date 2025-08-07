@@ -1,0 +1,1391 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VilorChat Mega</title>
+    <style>
+        :root {
+            --primary-color: #4a6fa5;
+            --secondary-color: #166088;
+            --accent-color: #4fc3f7;
+            --background-color: #f0f4f8;
+            --message-bg: #ffffff;
+            --user-message-bg: #e3f2fd;
+            --private-message-bg: #fff8e1;
+            --error-color: #f44336;
+            --text-color: #333333;
+            --success-color: #4CAF50;
+            --call-color: #8BC34A;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: var(--background-color);
+            color: var(--text-color);
+            line-height: 1.6;
+        }
+        
+        #login-container, #name-container, #chat-container {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            margin-bottom: 25px;
+        }
+        
+        .chat-layout {
+            display: grid;
+            grid-template-columns: 300px 1fr;
+            gap: 25px;
+        }
+        
+        @media (max-width: 900px) {
+            .chat-layout {
+                grid-template-columns: 1fr;
+            }
+        }
+        
+        h1, h2 {
+            color: var(--primary-color);
+            margin-top: 0;
+        }
+        
+        .form-section {
+            margin-bottom: 25px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #555;
+        }
+        
+        input, textarea, button {
+            width: 100%;
+            padding: 14px;
+            border-radius: 8px;
+            border: 1px solid #ddd;
+            font-size: 1em;
+            box-sizing: border-box;
+            transition: all 0.3s;
+        }
+        
+        input:focus, textarea:focus {
+            outline: none;
+            border-color: var(--accent-color);
+            box-shadow: 0 0 0 3px rgba(79, 195, 247, 0.2);
+        }
+        
+        button {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-weight: bold;
+            margin-top: 10px;
+        }
+        
+        button:hover {
+            background-color: var(--secondary-color);
+            transform: translateY(-1px);
+        }
+        
+        button:active {
+            transform: translateY(0);
+        }
+        
+        .error-message {
+            color: var(--error-color);
+            font-size: 0.85em;
+            margin-top: 5px;
+            display: none;
+        }
+        
+        .user-panel {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+            height: calc(100vh - 200px);
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .online-counter {
+            font-weight: bold;
+            color: var(--secondary-color);
+            margin-bottom: 15px;
+            font-size: 1.1em;
+        }
+        
+        .user-list {
+            flex: 1;
+            overflow-y: auto;
+            margin-bottom: 15px;
+        }
+        
+        .user-item {
+            padding: 12px 15px;
+            margin: 8px 0;
+            border-radius: 6px;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: all 0.2s;
+        }
+        
+        .user-item:hover {
+            background-color: #e9ecef;
+            transform: translateX(3px);
+        }
+        
+        .user-item.private {
+            background-color: #e3f2fd;
+        }
+        
+        .user-item.current-user {
+            font-weight: bold;
+            background-color: #e9ecef;
+        }
+        
+        .badge {
+            font-size: 0.75em;
+            background-color: var(--accent-color);
+            color: white;
+            padding: 3px 8px;
+            border-radius: 10px;
+            margin-left: 8px;
+        }
+        
+        .call-badge {
+            background-color: var(--call-color);
+        }
+        
+        .chat-area {
+            display: flex;
+            flex-direction: column;
+            height: calc(100vh - 200px);
+        }
+        
+        .chat-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        
+        .chat-title {
+            font-size: 1.4em;
+            font-weight: bold;
+            color: var(--secondary-color);
+            flex: 1;
+        }
+        
+        .back-button {
+            padding: 8px 15px;
+            background-color: #e9ecef;
+            border-radius: 6px;
+            cursor: pointer;
+            display: none;
+            margin-left: 15px;
+        }
+        
+        .back-button:hover {
+            background-color: #dee2e6;
+        }
+        
+        .messages-container {
+            flex: 1;
+            overflow-y: auto;
+            border: 1px solid #e0e0e0;
+            padding: 20px;
+            background-color: white;
+            border-radius: 10px;
+            margin-bottom: 15px;
+            scroll-behavior: smooth;
+        }
+        
+        .message {
+            margin-bottom: 20px;
+            padding: 15px;
+            border-radius: 10px;
+            background-color: var(--message-bg);
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+            max-width: 80%;
+            animation: fadeIn 0.3s ease-out;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(5px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .message.user-message {
+            margin-left: auto;
+            background-color: var(--user-message-bg);
+            border-bottom-right-radius: 4px;
+        }
+        
+        .message.private-message {
+            background-color: var(--private-message-bg);
+            border-left: 4px solid #ffc107;
+        }
+        
+        .message-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        
+        .sender-name {
+            font-weight: bold;
+            color: var(--secondary-color);
+        }
+        
+        .message-time {
+            font-size: 0.75em;
+            color: #757575;
+            margin-left: auto;
+        }
+        
+        .message-content {
+            line-height: 1.5;
+            word-wrap: break-word;
+        }
+        
+        .input-area {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        
+        #message-input {
+            min-height: 100px;
+            resize: vertical;
+            padding: 15px;
+            color: var(--text-color);
+        }
+        
+        .send-button {
+            align-self: flex-end;
+            padding: 12px 25px;
+            width: auto;
+        }
+        
+        .typing-indicator {
+            font-style: italic;
+            color: #666;
+            height: 20px;
+            margin-bottom: 5px;
+            font-size: 0.9em;
+        }
+        
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background-color: var(--success-color);
+            color: white;
+            padding: 15px 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            z-index: 1000;
+            display: none;
+            animation: slideIn 0.3s ease-out;
+        }
+        
+        @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        
+        .connection-status {
+            font-size: 0.85em;
+            color: #666;
+            text-align: center;
+            padding: 8px;
+            border-radius: 4px;
+            margin-top: 10px;
+        }
+        
+        .connection-status.connected {
+            background-color: rgba(76, 175, 80, 0.1);
+            color: var(--success-color);
+        }
+        
+        .connection-status.disconnected {
+            background-color: rgba(244, 67, 54, 0.1);
+            color: var(--error-color);
+        }
+        
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255,255,255,.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 1s ease-in-out infinite;
+            margin-right: 10px;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        /* Estilos para chamadas */
+        .call-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(0,0,0,0.8);
+            z-index: 2000;
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .call-box {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            width: 80%;
+            max-width: 800px;
+            text-align: center;
+        }
+        
+        .video-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .video-box {
+            background: #333;
+            border-radius: 8px;
+            overflow: hidden;
+            position: relative;
+            padding-top: 56.25%; /* 16:9 Aspect Ratio */
+        }
+        
+        .video-box video {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        
+        .call-buttons {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-top: 20px;
+        }
+        
+        .call-button {
+            padding: 12px 25px;
+            border-radius: 50px;
+            font-weight: bold;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .accept-call {
+            background-color: var(--call-color);
+            color: white;
+        }
+        
+        .reject-call {
+            background-color: var(--error-color);
+            color: white;
+        }
+        
+        .end-call {
+            background-color: var(--error-color);
+            color: white;
+        }
+        
+        .call-info {
+            font-size: 1.2em;
+            margin-bottom: 20px;
+            font-weight: bold;
+        }
+        
+        .call-status {
+            font-style: italic;
+            color: #666;
+            margin: 10px 0;
+        }
+        
+        .call-icon {
+            margin-right: 8px;
+        }
+    </style>
+</head>
+<body>
+    <!-- Tela de Login -->
+    <div id="login-container">
+        <h1>Bem-vindo ao VilorChat Mega</h1>
+        <p>Converse e faça chamadas com milhares de usuários em tempo real!</p>
+        
+        <div class="form-section">
+            <label for="login-username">Login</label>
+            <input type="text" id="login-username" placeholder="Digite seu login" value="VilorCreated">
+            <div class="error-message" id="login-error"></div>
+        </div>
+        
+        <div class="form-section">
+            <label for="login-password">Senha</label>
+            <input type="password" id="login-password" placeholder="Digite sua senha" value="This">
+            <div class="error-message" id="password-error"></div>
+        </div>
+        
+        <button id="login-btn">
+            <span id="login-spinner" class="loading" style="display: none;"></span>
+            <span id="login-text">Entrar</span>
+        </button>
+    </div>
+
+    <!-- Tela de Escolha de Nome -->
+    <div id="name-container" style="display: none;">
+        <h2>Escolha seu nome no chat</h2>
+        <p>Como você gostaria de ser chamado?</p>
+        
+        <div class="form-section">
+            <input type="text" id="chat-username" placeholder="Seu nome (2-20 caracteres)" maxlength="20">
+            <div class="error-message" id="name-error"></div>
+        </div>
+        
+        <button id="confirm-name-btn">
+            <span id="name-spinner" class="loading" style="display: none;"></span>
+            <span id="name-text">Entrar no Chat</span>
+        </button>
+    </div>
+
+    <!-- Tela do Chat -->
+    <div id="chat-container" style="display: none;">
+        <div class="chat-layout">
+            <div class="user-panel">
+                <div class="online-counter">
+                    <span id="online-count">0</span> usuários online
+                </div>
+                
+                <div class="user-list" id="user-list"></div>
+                
+                <div class="connection-status" id="connection-status">
+                    Conectando ao servidor...
+                </div>
+            </div>
+            
+            <div class="chat-area">
+                <div class="chat-header">
+                    <div class="chat-title" id="chat-title">Chat Público</div>
+                    <div class="back-button" id="back-button">← Voltar</div>
+                </div>
+                
+                <div class="typing-indicator" id="typing-indicator"></div>
+                
+                <div class="messages-container" id="messages-container"></div>
+                
+                <div class="input-area">
+                    <textarea id="message-input" placeholder="Digite sua mensagem..." autocomplete="off"></textarea>
+                    <button class="send-button" id="send-btn">Enviar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tela de Chamada -->
+    <div class="call-container" id="call-container">
+        <div class="call-box">
+            <div class="call-info" id="call-info">Chamando...</div>
+            <div class="call-status" id="call-status">Conectando...</div>
+            
+            <div class="video-container" id="video-container">
+                <div class="video-box">
+                    <video id="local-video" autoplay muted></video>
+                </div>
+                <div class="video-box">
+                    <video id="remote-video" autoplay></video>
+                </div>
+            </div>
+            
+            <div class="call-buttons" id="call-buttons">
+                <button class="call-button end-call" id="end-call-button">
+                    <span class="call-icon">✖</span> Encerrar
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="notification" id="notification"></div>
+
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+    
+    <!-- WebRTC Adapter -->
+    <script src="https://webrtc.github.io/adapter/adapter-latest.js"></script>
+    
+    <script>
+        // Configuração do Firebase
+        const firebaseConfig = {
+            databaseURL: "https://vilorchatmessage-default-rtdb.firebaseio.com/"
+        };
+        
+        // Inicializa o Firebase
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+
+        // Elementos da interface
+        const loginContainer = document.getElementById('login-container');
+        const nameContainer = document.getElementById('name-container');
+        const chatContainer = document.getElementById('chat-container');
+        const loginBtn = document.getElementById('login-btn');
+        const loginSpinner = document.getElementById('login-spinner');
+        const loginText = document.getElementById('login-text');
+        const confirmNameBtn = document.getElementById('confirm-name-btn');
+        const nameSpinner = document.getElementById('name-spinner');
+        const nameText = document.getElementById('name-text');
+        const loginUsername = document.getElementById('login-username');
+        const loginPassword = document.getElementById('login-password');
+        const chatUsername = document.getElementById('chat-username');
+        const messagesContainer = document.getElementById('messages-container');
+        const messageInput = document.getElementById('message-input');
+        const sendBtn = document.getElementById('send-btn');
+        const onlineCountSpan = document.getElementById('online-count');
+        const userListDiv = document.getElementById('user-list');
+        const typingIndicator = document.getElementById('typing-indicator');
+        const notification = document.getElementById('notification');
+        const chatTitle = document.getElementById('chat-title');
+        const backButton = document.getElementById('back-button');
+        const connectionStatus = document.getElementById('connection-status');
+        const loginError = document.getElementById('login-error');
+        const passwordError = document.getElementById('password-error');
+        const nameError = document.getElementById('name-error');
+        
+        // Elementos de chamada
+        const callContainer = document.getElementById('call-container');
+        const callInfo = document.getElementById('call-info');
+        const callStatus = document.getElementById('call-status');
+        const videoContainer = document.getElementById('video-container');
+        const callButtons = document.getElementById('call-buttons');
+        const localVideo = document.getElementById('local-video');
+        const remoteVideo = document.getElementById('remote-video');
+        const endCallButton = document.getElementById('end-call-button');
+
+        // Credenciais fixas
+        const FIXED_LOGIN = "VilorCreated";
+        const FIXED_PASSWORD = "This";
+
+        // Variáveis globais
+        let currentUser = "";
+        let userRef;
+        let presenceRef;
+        let typingRef;
+        let messagesRef;
+        let callsRef;
+        let lastTypingTime = 0;
+        let isTyping = false;
+        let onlineUsers = {};
+        let activeChat = "public";
+        let privateChats = {};
+        let unreadMessages = {};
+        let connectionStatusRef;
+        let isConnected = false;
+        let presenceCleanupInterval;
+        let messageCount = 0;
+        const MAX_MESSAGES = 10000;
+        
+        // Variáveis de WebRTC
+        let peerConnection;
+        let localStream;
+        let currentCall = null;
+        let callRequestRef = null;
+        let callAnswerRef = null;
+        let iceCandidatesRef = null;
+
+        // Mostrar notificação
+        function showNotification(message, duration = 3000) {
+            notification.textContent = message;
+            notification.style.display = 'block';
+            
+            setTimeout(() => {
+                notification.style.display = 'none';
+            }, duration);
+        }
+
+        // Validar login
+        function validateLogin() {
+            const username = loginUsername.value.trim();
+            const password = loginPassword.value.trim();
+            
+            if (username !== FIXED_LOGIN) {
+                loginError.textContent = "Login incorreto! Use: VilorCreated";
+                loginError.style.display = 'block';
+                return false;
+            }
+            
+            if (password !== FIXED_PASSWORD) {
+                passwordError.textContent = "Senha incorreta! Use: This";
+                passwordError.style.display = 'block';
+                return false;
+            }
+            
+            loginError.style.display = 'none';
+            passwordError.style.display = 'none';
+            return true;
+        }
+
+        // Validar nome do chat
+        function validateChatName() {
+            const name = chatUsername.value.trim();
+            
+            if (name.length < 2) {
+                nameError.textContent = "O nome deve ter pelo menos 2 caracteres";
+                nameError.style.display = 'block';
+                return false;
+            }
+            
+            if (name.length > 20) {
+                nameError.textContent = "O nome deve ter no máximo 20 caracteres";
+                nameError.style.display = 'block';
+                return false;
+            }
+            
+            nameError.style.display = 'none';
+            return true;
+        }
+
+        // Evento de login
+        loginBtn.addEventListener('click', async () => {
+            if (!validateLogin()) return;
+            
+            loginSpinner.style.display = 'inline-block';
+            loginText.textContent = "Verificando...";
+            loginBtn.disabled = true;
+            
+            // Simular verificação (remova em produção real)
+            await new Promise(resolve => setTimeout(resolve, 800));
+            
+            loginContainer.style.display = 'none';
+            nameContainer.style.display = 'block';
+            chatUsername.focus();
+            
+            loginSpinner.style.display = 'none';
+            loginText.textContent = "Entrar";
+            loginBtn.disabled = false;
+        });
+
+        // Evento de confirmação do nome
+        confirmNameBtn.addEventListener('click', async () => {
+            if (!validateChatName()) return;
+            
+            nameSpinner.style.display = 'inline-block';
+            nameText.textContent = "Entrando...";
+            confirmNameBtn.disabled = true;
+            
+            currentUser = chatUsername.value.trim();
+            
+            // Simular conexão inicial (remova em produção real)
+            await new Promise(resolve => setTimeout(resolve, 600));
+            
+            nameContainer.style.display = 'none';
+            chatContainer.style.display = 'block';
+            initializeChat();
+            showNotification(`Bem-vindo, ${currentUser}!`, 4000);
+            messageInput.focus();
+            
+            nameSpinner.style.display = 'none';
+            nameText.textContent = "Entrar no Chat";
+            confirmNameBtn.disabled = false;
+        });
+
+        function initializeChat() {
+            // Referências do Firebase
+            messagesRef = database.ref('messages/public');
+            presenceRef = database.ref('presence');
+            typingRef = database.ref('typing');
+            callsRef = database.ref('calls');
+            connectionStatusRef = database.ref('.info/connected');
+            
+            // Monitorar status de conexão
+            connectionStatusRef.on('value', (snapshot) => {
+                isConnected = snapshot.val() === true;
+                
+                if (isConnected) {
+                    connectionStatus.textContent = "✔ Conectado ao servidor";
+                    connectionStatus.className = "connection-status connected";
+                    
+                    // Registrar usuário online
+                    userRef = presenceRef.push();
+                    userRef.set({
+                        user: currentUser,
+                        timestamp: firebase.database.ServerValue.TIMESTAMP,
+                        online: true
+                    });
+                    
+                    // Configurar para remover quando desconectar
+                    userRef.onDisconnect().remove();
+                    
+                    // Limpeza periódica de usuários offline
+                    presenceCleanupInterval = setInterval(cleanupOfflineUsers, 300000); // 5 minutos
+                    
+                    // Iniciar monitoramento de chamadas
+                    setupCallMonitoring();
+                } else {
+                    connectionStatus.textContent = "✖ Desconectado do servidor - tentando reconectar...";
+                    connectionStatus.className = "connection-status disconnected";
+                }
+            });
+            
+            // Monitorar usuários online
+            presenceRef.orderByChild('online').equalTo(true).on('value', (snapshot) => {
+                onlineUsers = {};
+                const users = snapshot.val() || {};
+                
+                Object.keys(users).forEach(key => {
+                    const userData = users[key];
+                    if (userData.online === true) {
+                        onlineUsers[userData.user] = {
+                            key: key,
+                            timestamp: userData.timestamp
+                        };
+                    }
+                });
+                
+                // Atualizar contagem
+                onlineCountSpan.textContent = Object.keys(onlineUsers).length.toLocaleString();
+                
+                // Atualizar lista de usuários
+                updateUserList();
+            });
+            
+            // Monitorar quem está digitando
+            typingRef.on('child_added', (snapshot) => {
+                const typingData = snapshot.val();
+                if (typingData.user !== currentUser && typingData.chat === activeChat) {
+                    typingIndicator.textContent = `${typingData.user} está digitando...`;
+                    setTimeout(() => {
+                        typingIndicator.textContent = "";
+                    }, 3000);
+                }
+            });
+            
+            // Carregar mensagens públicas
+            loadPublicMessages();
+            
+            // Configurar ouvintes de mensagens privadas
+            setupPrivateChatListeners();
+            
+            // Configurar envio de mensagens
+            sendBtn.addEventListener('click', sendMessage);
+            messageInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    sendMessage();
+                }
+            });
+            
+            // Monitorar digitação
+            let typingTimeout;
+            messageInput.addEventListener('input', () => {
+                clearTimeout(typingTimeout);
+                updateTyping();
+                typingTimeout = setTimeout(stopTyping, 2000);
+            });
+            
+            // Botão para voltar ao chat público
+            backButton.addEventListener('click', () => {
+                switchChat("public");
+                backButton.style.display = 'none';
+                chatTitle.textContent = "Chat Público";
+            });
+            
+            // Auto-resize textarea
+            messageInput.addEventListener('input', function() {
+                this.style.height = 'auto';
+                this.style.height = (this.scrollHeight) + 'px';
+            });
+            
+            // Configurar botão de encerrar chamada
+            endCallButton.addEventListener('click', endCall);
+        }
+        
+        function cleanupOfflineUsers() {
+            if (!isConnected) return;
+            
+            const cutoff = Date.now() - 300000; // 5 minutos atrás
+            
+            presenceRef.orderByChild('timestamp').endAt(cutoff).once('value', (snapshot) => {
+                const updates = {};
+                snapshot.forEach((child) => {
+                    updates[child.key] = null;
+                });
+                
+                if (Object.keys(updates).length > 0) {
+                    presenceRef.update(updates);
+                }
+            });
+        }
+        
+        function loadPublicMessages() {
+            messagesRef.limitToLast(50).on('child_added', (snapshot) => {
+                const message = snapshot.val();
+                if (activeChat === "public") {
+                    displayMessage(message, "public");
+                    checkMessageLimit();
+                }
+            });
+        }
+        
+        function checkMessageLimit() {
+            messageCount++;
+            if (messageCount >= MAX_MESSAGES) {
+                // Resetar mensagens quando atingir o limite
+                database.ref('messages').set({ public: {}, private: {} })
+                    .then(() => {
+                        showNotification("O chat foi renovado automaticamente!");
+                        messageCount = 0;
+                    })
+                    .catch(error => {
+                        console.error("Erro ao resetar mensagens:", error);
+                    });
+            }
+        }
+        
+        function setupPrivateChatListeners() {
+            // Ouvinte para mensagens privadas
+            database.ref('messages/private').on('child_added', (snapshot) => {
+                const conversationId = snapshot.key;
+                const messagesRef = database.ref(`messages/private/${conversationId}`);
+                
+                messagesRef.on('child_added', (messageSnapshot) => {
+                    const message = messageSnapshot.val();
+                    
+                    // Verificar se a mensagem é para o usuário atual
+                    if (message.to === currentUser || message.from === currentUser) {
+                        const otherUser = message.from === currentUser ? message.to : message.from;
+                        
+                        if (!privateChats[otherUser]) {
+                            privateChats[otherUser] = true;
+                        }
+                        
+                        if (activeChat === `private-${otherUser}`) {
+                            displayMessage(message, "private");
+                        } else {
+                            markUnread(otherUser);
+                        }
+                        
+                        checkMessageLimit();
+                    }
+                });
+            });
+        }
+        
+        function updateUserList() {
+            const fragment = document.createDocumentFragment();
+            const currentUsers = Object.keys(onlineUsers).sort();
+            
+            currentUsers.forEach(user => {
+                if (user === currentUser) return;
+                
+                const userElement = document.createElement('div');
+                userElement.className = 'user-item';
+                
+                const userContent = document.createElement('div');
+                userContent.style.display = 'flex';
+                userContent.style.justifyContent = 'space-between';
+                userContent.style.width = '100%';
+                userContent.style.alignItems = 'center';
+                
+                const userName = document.createElement('span');
+                userName.textContent = user;
+                
+                const badges = document.createElement('div');
+                
+                if (privateChats[user]) {
+                    const chatBadge = document.createElement('span');
+                    chatBadge.className = 'badge';
+                    chatBadge.textContent = 'Chat';
+                    badges.appendChild(chatBadge);
+                }
+                
+                if (unreadMessages[user]) {
+                    const unreadBadge = document.createElement('span');
+                    unreadBadge.className = 'badge';
+                    unreadBadge.textContent = unreadMessages[user];
+                    unreadBadge.style.marginLeft = '5px';
+                    badges.appendChild(unreadBadge);
+                }
+                
+                const callButton = document.createElement('button');
+                callButton.className = 'badge call-badge';
+                callButton.textContent = 'Chamar';
+                callButton.style.marginLeft = '5px';
+                callButton.style.cursor = 'pointer';
+                callButton.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    startCall(user);
+                });
+                badges.appendChild(callButton);
+                
+                userContent.appendChild(userName);
+                userContent.appendChild(badges);
+                userElement.appendChild(userContent);
+                
+                userElement.addEventListener('click', () => {
+                    startPrivateChat(user);
+                });
+                
+                fragment.appendChild(userElement);
+            });
+            
+            // Adicionar item do usuário atual no topo
+            const currentUserElement = document.createElement('div');
+            currentUserElement.className = 'user-item current-user';
+            currentUserElement.textContent = `${currentUser} (você)`;
+            fragment.insertBefore(currentUserElement, fragment.firstChild);
+            
+            userListDiv.innerHTML = '';
+            userListDiv.appendChild(fragment);
+        }
+        
+        function startPrivateChat(user) {
+            if (!privateChats[user]) {
+                privateChats[user] = true;
+            }
+            
+            switchChat(`private-${user}`);
+            backButton.style.display = 'block';
+            chatTitle.textContent = `Chat com ${user}`;
+            
+            if (unreadMessages[user]) {
+                delete unreadMessages[user];
+                updateUserList();
+            }
+        }
+        
+        function markUnread(user) {
+            if (!unreadMessages[user]) {
+                unreadMessages[user] = 1;
+            } else {
+                unreadMessages[user]++;
+            }
+            
+            updateUserList();
+        }
+        
+        function switchChat(chatId) {
+            activeChat = chatId;
+            messagesContainer.innerHTML = "";
+            typingIndicator.textContent = "";
+            
+            if (chatId === "public") {
+                messagesRef = database.ref('messages/public');
+                messagesRef.limitToLast(50).once('value', (snapshot) => {
+                    const messages = [];
+                    snapshot.forEach((child) => {
+                        messages.push(child.val());
+                    });
+                    
+                    messages.sort((a, b) => a.timestamp - b.timestamp);
+                    messages.forEach(msg => displayMessage(msg, "public"));
+                });
+            } else {
+                const privateUser = chatId.replace('private-', '');
+                const conversationId = getConversationId(privateUser);
+                
+                database.ref(`messages/private/${conversationId}`).limitToLast(50).once('value', (snapshot) => {
+                    const messages = [];
+                    snapshot.forEach((child) => {
+                        messages.push(child.val());
+                    });
+                    
+                    messages.sort((a, b) => a.timestamp - b.timestamp);
+                    messages.forEach(msg => displayMessage(msg, "private"));
+                });
+            }
+        }
+        
+        function getConversationId(user) {
+            const users = [currentUser, user].sort();
+            return `${users[0]}_${users[1]}`;
+        }
+        
+        function updateTyping() {
+            if (!isTyping) {
+                isTyping = true;
+                typingRef.push({
+                    user: currentUser,
+                    chat: activeChat,
+                    timestamp: firebase.database.ServerValue.TIMESTAMP
+                }).then(ref => {
+                    setTimeout(() => ref.remove(), 3000);
+                });
+            }
+            
+            lastTypingTime = Date.now();
+        }
+        
+        function stopTyping() {
+            isTyping = false;
+        }
+        
+        function sendMessage() {
+            const messageText = messageInput.value.trim();
+            if (!messageText) return;
+            
+            stopTyping();
+            const timestamp = firebase.database.ServerValue.TIMESTAMP;
+            
+            if (activeChat === "public") {
+                messagesRef.push({
+                    user: currentUser,
+                    text: messageText,
+                    timestamp: timestamp
+                });
+            } else {
+                const privateUser = activeChat.replace('private-', '');
+                const conversationId = getConversationId(privateUser);
+                
+                database.ref(`messages/private/${conversationId}`).push({
+                    from: currentUser,
+                    to: privateUser,
+                    text: messageText,
+                    timestamp: timestamp,
+                    conversation: conversationId
+                });
+            }
+            
+            messageInput.value = '';
+            messageInput.style.height = 'auto';
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
+        
+        function displayMessage(message, type) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${type === "private" ? 'private-message' : ''} ${
+                (message.user === currentUser || message.from === currentUser) ? 'user-message' : ''
+            }`;
+            
+            const sender = type === "public" ? message.user : message.from;
+            const time = new Date(message.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+            
+            messageDiv.innerHTML = `
+                <div class="message-header">
+                    <span class="sender-name">${sender}</span>
+                    ${(sender === currentUser) ? '<span class="badge">Você</span>' : ''}
+                    ${type === "private" ? '<span class="badge">Privado</span>' : ''}
+                    <span class="message-time">${time}</span>
+                </div>
+                <div class="message-content">${message.text}</div>
+            `;
+            
+            messagesContainer.appendChild(messageDiv);
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
+        
+        // Sistema de Chamadas
+        function setupCallMonitoring() {
+            // Monitorar chamadas recebidas
+            callsRef.orderByChild('to').equalTo(currentUser).on('child_added', (snapshot) => {
+                const callData = snapshot.val();
+                
+                if (callData.status === 'requested' && !currentCall) {
+                    showIncomingCall(callData.from, snapshot.key);
+                }
+            });
+        }
+        
+        function showIncomingCall(from, callId) {
+            callInfo.textContent = `Chamada de ${from}`;
+            callStatus.textContent = "Chamando...";
+            
+            // Limpar botões anteriores
+            callButtons.innerHTML = '';
+            
+            // Adicionar botões de aceitar/rejeitar
+            const acceptButton = document.createElement('button');
+            acceptButton.className = 'call-button accept-call';
+            acceptButton.innerHTML = '<span class="call-icon">✓</span> Atender';
+            acceptButton.addEventListener('click', () => {
+                answerCall(callId, from);
+            });
+            
+            const rejectButton = document.createElement('button');
+            rejectButton.className = 'call-button reject-call';
+            rejectButton.innerHTML = '<span class="call-icon">✖</span> Recusar';
+            rejectButton.addEventListener('click', () => {
+                rejectCall(callId);
+            });
+            
+            callButtons.appendChild(acceptButton);
+            callButtons.appendChild(rejectButton);
+            
+            // Mostrar container de chamada
+            callContainer.style.display = 'flex';
+            currentCall = { id: callId, from: from, type: 'incoming' };
+            
+            // Configurar timeout para chamada não atendida
+            setTimeout(() => {
+                if (currentCall && currentCall.id === callId) {
+                    rejectCall(callId);
+                    showNotification(`${from} não atendeu sua chamada`);
+                }
+            }, 45000); // 45 segundos para atender
+        }
+        
+        function startCall(toUser) {
+            if (currentCall) {
+                showNotification("Você já está em uma chamada");
+                return;
+            }
+            
+            const callId = callsRef.push().key;
+            currentCall = { id: callId, to: toUser, type: 'outgoing' };
+            
+            // Criar oferta de chamada
+            callsRef.child(callId).set({
+                from: currentUser,
+                to: toUser,
+                status: 'requested',
+                timestamp: firebase.database.ServerValue.TIMESTAMP
+            });
+            
+            // Mostrar interface de chamada
+            callInfo.textContent = `Chamando ${toUser}...`;
+            callStatus.textContent = "Aguardando resposta...";
+            callButtons.innerHTML = '';
+            
+            const endButton = document.createElement('button');
+            endButton.className = 'call-button end-call';
+            endButton.innerHTML = '<span class="call-icon">✖</span> Cancelar';
+            endButton.addEventListener('click', endCall);
+            callButtons.appendChild(endButton);
+            
+            callContainer.style.display = 'flex';
+            
+            // Monitorar resposta
+            callsRef.child(callId).on('value', (snapshot) => {
+                const callData = snapshot.val();
+                if (!callData) return;
+                
+                if (callData.status === 'answered') {
+                    // Chamada atendida, iniciar conexão WebRTC
+                    callStatus.textContent = "Chamada em andamento...";
+                    setupWebRTC(callId, 'caller');
+                } else if (callData.status === 'rejected') {
+                    // Chamada rejeitada
+                    endCall();
+                    showNotification(`${toUser} recusou sua chamada`);
+                } else if (callData.status === 'ended') {
+                    // Chamada encerrada
+                    endCall();
+                    showNotification(`Chamada com ${toUser} encerrada`);
+                }
+            });
+            
+            // Timeout se não responder
+            setTimeout(() => {
+                if (currentCall && currentCall.id === callId) {
+                    endCall();
+                    showNotification(`${toUser} não está respondendo`);
+                }
+            }, 45000); // 45 segundos
+        }
+        
+        async function answerCall(callId, from) {
+            try {
+                await setupWebRTC(callId, 'callee');
+                
+                // Atualizar status da chamada para atendida
+                callsRef.child(callId).update({
+                    status: 'answered',
+                    answeredAt: firebase.database.ServerValue.TIMESTAMP
+                });
+                
+                callInfo.textContent = `Em chamada com ${from}`;
+                callStatus.textContent = "Chamada em andamento...";
+                
+                // Configurar botão de encerrar
+                callButtons.innerHTML = '';
+                const endButton = document.createElement('button');
+                endButton.className = 'call-button end-call';
+                endButton.innerHTML = '<span class="call-icon">✖</span> Encerrar';
+                endButton.addEventListener('click', endCall);
+                callButtons.appendChild(endButton);
+                
+                currentCall = { id: callId, from: from, type: 'incoming', answered: true };
+            } catch (error) {
+                console.error("Erro ao atender chamada:", error);
+                endCall();
+                showNotification("Erro ao iniciar chamada");
+            }
+        }
+        
+        function rejectCall(callId) {
+            callsRef.child(callId).update({
+                status: 'rejected',
+                endedAt: firebase.database.ServerValue.TIMESTAMP
+            });
+            endCall();
+        }
+        
+        function endCall() {
+            if (currentCall) {
+                // Atualizar status da chamada
+                if (currentCall.id) {
+                    callsRef.child(currentCall.id).update({
+                        status: 'ended',
+                        endedAt: firebase.database.ServerValue.TIMESTAMP
+                    });
+                }
+                
+                // Encerrar streams
+                if (localStream) {
+                    localStream.getTracks().forEach(track => track.stop());
+                    localStream = null;
+                }
+                
+                if (peerConnection) {
+                    peerConnection.close();
+                    peerConnection = null;
+                }
+                
+                // Limpar elementos de vídeo
+                localVideo.srcObject = null;
+                remoteVideo.srcObject = null;
+                
+                // Esconder container de chamada
+                callContainer.style.display = 'none';
+                currentCall = null;
+            }
+        }
+        
+        async function setupWebRTC(callId, role) {
+            try {
+                // Obter stream de mídia local
+                localStream = await navigator.mediaDevices.getUserMedia({
+                    video: true,
+                    audio: true
+                });
+                localVideo.srcObject = localStream;
+                
+                // Configurar PeerConnection
+                const configuration = {
+                    iceServers: [
+                        { urls: 'stun:stun.l.google.com:19302' },
+                        // Adicione seus próprios servidores TURN/STUN aqui se necessário
+                    ]
+                };
+                
+                peerConnection = new RTCPeerConnection(configuration);
+                
+                // Adicionar stream local
+                localStream.getTracks().forEach(track => {
+                    peerConnection.addTrack(track, localStream);
+                });
+                
+                // Configurar recebimento de stream remoto
+                peerConnection.ontrack = (event) => {
+                    remoteVideo.srcObject = event.streams[0];
+                };
+                
+                // Configurar ICE candidates
+                peerConnection.onicecandidate = (event) => {
+                    if (event.candidate) {
+                        database.ref(`calls/${callId}/iceCandidates/${role}`).push({
+                            candidate: event.candidate,
+                            timestamp: firebase.database.ServerValue.TIMESTAMP
+                        });
+                    }
+                };
+                
+                // Para o caller, criar oferta
+                if (role === 'caller') {
+                    const offer = await peerConnection.createOffer();
+                    await peerConnection.setLocalDescription(offer);
+                    
+                    database.ref(`calls/${callId}`).update({
+                        offer: {
+                            type: offer.type,
+                            sdp: offer.sdp
+                        }
+                    });
+                    
+                    // Monitorar resposta
+                    database.ref(`calls/${callId}/answer`).on('value', (snapshot) => {
+                        const answer = snapshot.val();
+                        if (answer && peerConnection.signalingState !== 'closed') {
+                            peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
+                        }
+                    });
+                } 
+                // Para o callee, esperar oferta
+                else if (role === 'callee') {
+                    database.ref(`calls/${callId}/offer`).on('value', async (snapshot) => {
+                        const offer = snapshot.val();
+                        if (offer && peerConnection.signalingState !== 'closed') {
+                            await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
+                            
+                            const answer = await peerConnection.createAnswer();
+                            await peerConnection.setLocalDescription(answer);
+                            
+                            database.ref(`calls/${callId}`).update({
+                                answer: {
+                                    type: answer.type,
+                                    sdp: answer.sdp
+                                }
+                            });
+                        }
+                    });
+                }
+                
+                // Monitorar ICE candidates do outro participante
+                const iceRef = database.ref(`calls/${callId}/iceCandidates/${
+                    role === 'caller' ? 'callee' : 'caller'
+                }`);
+                
+                iceRef.on('child_added', (snapshot) => {
+                    const candidate = snapshot.val().candidate;
+                    if (candidate && peerConnection.signalingState !== 'closed') {
+                        peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+                    }
+                });
+                
+                // Monitorar encerramento de chamada
+                database.ref(`calls/${callId}/status`).on('value', (snapshot) => {
+                    if (snapshot.val() === 'ended') {
+                        endCall();
+                    }
+                });
+                
+            } catch (error) {
+                console.error("Erro WebRTC:", error);
+                endCall();
+                throw error;
+            }
+        }
+        
+        // Gerenciamento de limpeza
+        window.addEventListener('beforeunload', () => {
+            if (userRef) userRef.remove();
+            if (presenceCleanupInterval) clearInterval(presenceCleanupInterval);
+            if (currentCall) endCall();
+        });
+    </script>
+</body>
+</html>
