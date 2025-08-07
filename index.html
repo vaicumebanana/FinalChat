@@ -3,763 +3,378 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>VilorChat Mega - Voz</title>
+    <title>VilorChat Voz</title>
     <style>
         :root {
-            --primary-color: #4a6fa5;
-            --secondary-color: #166088;
-            --accent-color: #4fc3f7;
-            --background-color: #f0f4f8;
-            --message-bg: #ffffff;
-            --user-message-bg: #e3f2fd;
-            --private-message-bg: #fff8e1;
-            --error-color: #f44336;
-            --text-color: #333333;
-            --success-color: #4CAF50;
-            --call-color: #8BC34A;
+            --primary: #4a6fa5;
+            --secondary: #166088;
+            --bg: #f0f4f8;
+            --msg-bg: #fff;
+            --user-msg: #e3f2fd;
         }
-        
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-family: 'Segoe UI', sans-serif;
             max-width: 1200px;
             margin: 0 auto;
             padding: 20px;
-            background-color: var(--background-color);
-            color: var(--text-color);
-            line-height: 1.6;
+            background: var(--bg);
         }
-        
         #login-container, #name-container, #chat-container {
             background: white;
-            padding: 30px;
-            border-radius: 12px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
-            margin-bottom: 25px;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
         }
-        
         .chat-layout {
             display: grid;
-            grid-template-columns: 300px 1fr;
-            gap: 25px;
+            grid-template-columns: 250px 1fr;
+            gap: 15px;
         }
-        
-        @media (max-width: 900px) {
-            .chat-layout {
-                grid-template-columns: 1fr;
-            }
+        @media (max-width: 768px) {
+            .chat-layout { grid-template-columns: 1fr; }
         }
-        
-        h1, h2 {
-            color: var(--primary-color);
-            margin-top: 0;
-        }
-        
-        .form-section {
-            margin-bottom: 25px;
-        }
-        
-        label {
-            display: block;
-            margin-bottom: 8px;
-            font-weight: 600;
-            color: #555;
-        }
-        
         input, textarea, button {
             width: 100%;
-            padding: 14px;
-            border-radius: 8px;
+            padding: 10px;
+            margin: 5px 0;
+            border-radius: 5px;
             border: 1px solid #ddd;
-            font-size: 1em;
-            box-sizing: border-box;
-            transition: all 0.3s;
         }
-        
-        input:focus, textarea:focus {
-            outline: none;
-            border-color: var(--accent-color);
-            box-shadow: 0 0 0 3px rgba(79, 195, 247, 0.2);
-        }
-        
         button {
-            background-color: var(--primary-color);
+            background: var(--primary);
             color: white;
             border: none;
             cursor: pointer;
-            font-weight: bold;
-            margin-top: 10px;
         }
-        
-        button:hover {
-            background-color: var(--secondary-color);
-            transform: translateY(-1px);
-        }
-        
-        button:active {
-            transform: translateY(0);
-        }
-        
-        .error-message {
-            color: var(--error-color);
-            font-size: 0.85em;
-            margin-top: 5px;
-            display: none;
-        }
-        
-        .user-panel {
-            background: #f8f9fa;
-            border-radius: 10px;
-            padding: 20px;
-            height: calc(100vh - 200px);
-            display: flex;
-            flex-direction: column;
-        }
-        
-        .online-counter {
-            font-weight: bold;
-            color: var(--secondary-color);
-            margin-bottom: 15px;
-            font-size: 1.1em;
-        }
-        
-        .user-list {
-            flex: 1;
-            overflow-y: auto;
-            margin-bottom: 15px;
-        }
-        
-        .user-item {
-            padding: 12px 15px;
-            margin: 8px 0;
-            border-radius: 6px;
-            cursor: pointer;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            transition: all 0.2s;
-        }
-        
-        .user-item:hover {
-            background-color: #e9ecef;
-            transform: translateX(3px);
-        }
-        
-        .user-item.private {
-            background-color: #e3f2fd;
-        }
-        
-        .user-item.current-user {
-            font-weight: bold;
-            background-color: #e9ecef;
-        }
-        
-        .badge {
-            font-size: 0.75em;
-            background-color: var(--accent-color);
-            color: white;
-            padding: 3px 8px;
-            border-radius: 10px;
-            margin-left: 8px;
-        }
-        
-        .call-badge {
-            background-color: var(--call-color);
-        }
-        
-        .chat-area {
-            display: flex;
-            flex-direction: column;
-            height: calc(100vh - 200px);
-        }
-        
-        .chat-header {
-            display: flex;
-            align-items: center;
-            margin-bottom: 15px;
-        }
-        
-        .chat-title {
-            font-size: 1.4em;
-            font-weight: bold;
-            color: var(--secondary-color);
-            flex: 1;
-        }
-        
-        .back-button {
-            padding: 8px 15px;
-            background-color: #e9ecef;
-            border-radius: 6px;
-            cursor: pointer;
-            display: none;
-            margin-left: 15px;
-        }
-        
-        .back-button:hover {
-            background-color: #dee2e6;
-        }
-        
+        button:hover { background: var(--secondary); }
         .messages-container {
-            flex: 1;
+            height: 60vh;
             overflow-y: auto;
-            border: 1px solid #e0e0e0;
-            padding: 20px;
-            background-color: white;
-            border-radius: 10px;
-            margin-bottom: 15px;
-            scroll-behavior: smooth;
+            border: 1px solid #ddd;
+            padding: 10px;
+            margin-bottom: 10px;
+            border-radius: 5px;
         }
-        
         .message {
-            margin-bottom: 20px;
-            padding: 15px;
-            border-radius: 10px;
-            background-color: var(--message-bg);
-            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+            padding: 10px;
+            margin-bottom: 10px;
+            border-radius: 5px;
+            background: var(--msg-bg);
+        }
+        .user-message {
+            background: var(--user-msg);
+            margin-left: auto;
             max-width: 80%;
-            animation: fadeIn 0.3s ease-out;
         }
-        
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(5px); }
-            to { opacity: 1; transform: translateY(0); }
+        .user-list {
+            height: 60vh;
+            overflow-y: auto;
         }
-        
-        .message.user-message {
-            margin-left: auto;
-            background-color: var(--user-message-bg);
-            border-bottom-right-radius: 4px;
-        }
-        
-        .message.private-message {
-            background-color: var(--private-message-bg);
-            border-left: 4px solid #ffc107;
-        }
-        
-        .message-header {
-            display: flex;
-            align-items: center;
-            margin-bottom: 8px;
-        }
-        
-        .sender-name {
-            font-weight: bold;
-            color: var(--secondary-color);
-        }
-        
-        .message-time {
-            font-size: 0.75em;
-            color: #757575;
-            margin-left: auto;
-        }
-        
-        .message-content {
-            line-height: 1.5;
-            word-wrap: break-word;
-        }
-        
-        .input-area {
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-        }
-        
-        #message-input {
-            min-height: 100px;
-            resize: vertical;
-            padding: 15px;
-            color: var(--text-color);
-        }
-        
-        .send-button {
-            align-self: flex-end;
-            padding: 12px 25px;
-            width: auto;
-        }
-        
-        .typing-indicator {
-            font-style: italic;
-            color: #666;
-            height: 20px;
-            margin-bottom: 5px;
-            font-size: 0.9em;
-        }
-        
-        .notification {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            background-color: var(--success-color);
-            color: white;
-            padding: 15px 20px;
-            border-radius: 8px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-            z-index: 1000;
-            display: none;
-            animation: slideIn 0.3s ease-out;
-        }
-        
-        @keyframes slideIn {
-            from { transform: translateX(100%); opacity: 0; }
-            to { transform: translateX(0); opacity: 1; }
-        }
-        
-        .connection-status {
-            font-size: 0.85em;
-            color: #666;
-            text-align: center;
+        .user-item {
             padding: 8px;
-            border-radius: 4px;
-            margin-top: 10px;
+            margin: 5px 0;
+            cursor: pointer;
+            border-radius: 5px;
         }
-        
-        .connection-status.connected {
-            background-color: rgba(76, 175, 80, 0.1);
-            color: var(--success-color);
-        }
-        
-        .connection-status.disconnected {
-            background-color: rgba(244, 67, 54, 0.1);
-            color: var(--error-color);
-        }
-        
-        .loading {
-            display: inline-block;
-            width: 20px;
-            height: 20px;
-            border: 3px solid rgba(255,255,255,.3);
-            border-radius: 50%;
-            border-top-color: white;
-            animation: spin 1s ease-in-out infinite;
-            margin-right: 10px;
-        }
-        
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
-        
-        /* Estilos para chamadas de voz */
+        .user-item:hover { background: #e9ecef; }
         .call-container {
             position: fixed;
             top: 0;
             left: 0;
             right: 0;
             bottom: 0;
-            background-color: rgba(0,0,0,0.8);
-            z-index: 2000;
+            background: rgba(0,0,0,0.8);
             display: none;
-            flex-direction: column;
-            align-items: center;
             justify-content: center;
+            align-items: center;
+            z-index: 1000;
         }
-        
         .call-box {
             background: white;
-            border-radius: 12px;
-            padding: 30px;
-            width: 80%;
-            max-width: 500px;
+            padding: 20px;
+            border-radius: 8px;
             text-align: center;
         }
-        
-        .call-info {
-            font-size: 1.5em;
-            margin-bottom: 20px;
-            font-weight: bold;
-        }
-        
-        .call-status {
-            font-style: italic;
-            color: #666;
-            margin: 20px 0;
-        }
-        
-        .call-icon {
-            margin-right: 8px;
-            font-size: 1.2em;
-        }
-        
-        .call-buttons {
-            display: flex;
-            justify-content: center;
-            gap: 15px;
-            margin-top: 20px;
-        }
-        
-        .call-button {
-            padding: 12px 25px;
-            border-radius: 50px;
-            font-weight: bold;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            min-width: 120px;
-        }
-        
-        .accept-call {
-            background-color: var(--call-color);
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: #4CAF50;
             color: white;
-        }
-        
-        .reject-call {
-            background-color: var(--error-color);
-            color: white;
-        }
-        
-        .end-call {
-            background-color: var(--error-color);
-            color: white;
-        }
-        
-        .audio-visualizer {
-            width: 100%;
-            height: 100px;
-            margin: 20px 0;
-            background-color: #f0f0f0;
-            border-radius: 8px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 2em;
+            padding: 10px 15px;
+            border-radius: 5px;
+            display: none;
         }
     </style>
 </head>
 <body>
-    <!-- Tela de Login -->
     <div id="login-container">
-        <h1>Bem-vindo ao VilorChat Mega</h1>
-        <p>Converse e faça chamadas de voz com outros usuários em tempo real!</p>
-        
-        <div class="form-section">
-            <label for="login-username">Login</label>
-            <input type="text" id="login-username" placeholder="Digite seu login" value="VilorCreated">
-            <div class="error-message" id="login-error"></div>
-        </div>
-        
-        <div class="form-section">
-            <label for="login-password">Senha</label>
-            <input type="password" id="login-password" placeholder="Digite sua senha" value="This">
-            <div class="error-message" id="password-error"></div>
-        </div>
-        
-        <button id="login-btn">
-            <span id="login-spinner" class="loading" style="display: none;"></span>
-            <span id="login-text">Entrar</span>
-        </button>
+        <h1>VilorChat Voz</h1>
+        <input type="text" id="login-username" placeholder="Login" value="VilorCreated">
+        <input type="password" id="login-password" placeholder="Senha" value="This">
+        <button id="login-btn">Entrar</button>
     </div>
 
-    <!-- Tela de Escolha de Nome -->
-    <div id="name-container" style="display: none;">
-        <h2>Escolha seu nome no chat</h2>
-        <p>Como você gostaria de ser chamado?</p>
-        
-        <div class="form-section">
-            <input type="text" id="chat-username" placeholder="Seu nome (2-20 caracteres)" maxlength="20">
-            <div class="error-message" id="name-error"></div>
-        </div>
-        
-        <button id="confirm-name-btn">
-            <span id="name-spinner" class="loading" style="display: none;"></span>
-            <span id="name-text">Entrar no Chat</span>
-        </button>
+    <div id="name-container" style="display:none">
+        <h2>Escolha seu nome</h2>
+        <input type="text" id="chat-username" placeholder="Seu nome">
+        <button id="confirm-name-btn">Entrar no Chat</button>
     </div>
 
-    <!-- Tela do Chat -->
-    <div id="chat-container" style="display: none;">
+    <div id="chat-container" style="display:none">
         <div class="chat-layout">
             <div class="user-panel">
-                <div class="online-counter">
-                    <span id="online-count">0</span> usuários online
-                </div>
-                
+                <div>Online: <span id="online-count">0</span></div>
                 <div class="user-list" id="user-list"></div>
-                
-                <div class="connection-status" id="connection-status">
-                    Conectando ao servidor...
-                </div>
             </div>
-            
             <div class="chat-area">
-                <div class="chat-header">
-                    <div class="chat-title" id="chat-title">Chat Público</div>
-                    <div class="back-button" id="back-button">← Voltar</div>
-                </div>
-                
-                <div class="typing-indicator" id="typing-indicator"></div>
-                
                 <div class="messages-container" id="messages-container"></div>
-                
-                <div class="input-area">
-                    <textarea id="message-input" placeholder="Digite sua mensagem..." autocomplete="off"></textarea>
-                    <button class="send-button" id="send-btn">Enviar</button>
-                </div>
+                <textarea id="message-input" placeholder="Digite sua mensagem..."></textarea>
+                <button id="send-btn">Enviar</button>
             </div>
         </div>
     </div>
 
-    <!-- Tela de Chamada de Voz -->
     <div class="call-container" id="call-container">
         <div class="call-box">
-            <div class="call-info" id="call-info">Chamando...</div>
-            <div class="call-status" id="call-status">Conectando...</div>
-            
-            <div class="audio-visualizer" id="audio-visualizer">
-                🎙️
-            </div>
-            
-            <div class="call-buttons" id="call-buttons">
-                <button class="call-button end-call" id="end-call-button">
-                    <span class="call-icon">✖</span> Encerrar
-                </button>
-            </div>
+            <div id="call-info">Chamando...</div>
+            <div id="call-status"></div>
+            <div id="call-buttons"></div>
         </div>
     </div>
 
     <div class="notification" id="notification"></div>
 
-    <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
-    
-    <!-- WebRTC Adapter -->
-    <script src="https://webrtc.github.io/adapter/adapter-latest.js"></script>
-    
     <script>
-        // Configuração do Firebase
-const firebaseConfig = {
-    databaseURL: "https://vilorchatmessage-default-rtdb.firebaseio.com/"
-};
+        // Firebase
+        firebase.initializeApp({ databaseURL: "https://vilorchatmessage-default-rtdb.firebaseio.com/" });
+        const db = firebase.database();
 
-// Inicializa o Firebase
-firebase.initializeApp(firebaseConfig);
-const database = firebase.database();
-
-// Variáveis globais
-let currentUser = "";
-let userRef, presenceRef, typingRef, messagesRef, callsRef;
-let onlineUsers = {};
-let activeChat = "public";
-let privateChats = {};
-let unreadMessages = {};
-let peerConnection, localStream, currentCall;
-
-// Elementos da interface
-const elements = {
-    login: {
-        container: document.getElementById('login-container'),
-        btn: document.getElementById('login-btn'),
-        spinner: document.getElementById('login-spinner'),
-        text: document.getElementById('login-text'),
-        username: document.getElementById('login-username'),
-        password: document.getElementById('login-password'),
-        error: document.getElementById('login-error'),
-        passwordError: document.getElementById('password-error')
-    },
-    name: {
-        container: document.getElementById('name-container'),
-        btn: document.getElementById('confirm-name-btn'),
-        spinner: document.getElementById('name-spinner'),
-        text: document.getElementById('name-text'),
-        username: document.getElementById('chat-username'),
-        error: document.getElementById('name-error')
-    },
-    chat: {
-        container: document.getElementById('chat-container'),
-        messages: document.getElementById('messages-container'),
-        input: document.getElementById('message-input'),
-        sendBtn: document.getElementById('send-btn'),
-        onlineCount: document.getElementById('online-count'),
-        userList: document.getElementById('user-list'),
-        typingIndicator: document.getElementById('typing-indicator'),
-        title: document.getElementById('chat-title'),
-        backButton: document.getElementById('back-button'),
-        status: document.getElementById('connection-status')
-    },
-    call: {
-        container: document.getElementById('call-container'),
-        info: document.getElementById('call-info'),
-        status: document.getElementById('call-status'),
-        buttons: document.getElementById('call-buttons'),
-        endBtn: document.getElementById('end-call-button'),
-        visualizer: document.getElementById('audio-visualizer')
-    },
-    notification: document.getElementById('notification')
-};
-
-// Funções básicas
-function showNotification(message, duration = 3000) {
-    elements.notification.textContent = message;
-    elements.notification.style.display = 'block';
-    setTimeout(() => elements.notification.style.display = 'none', duration);
-}
-
-// Login e nome
-function validateLogin() {
-    const valid = elements.login.username.value.trim() === FIXED_LOGIN && 
-                 elements.login.password.value.trim() === FIXED_PASSWORD;
-    
-    elements.login.error.style.display = valid ? 'none' : 'block';
-    elements.login.passwordError.style.display = valid ? 'none' : 'block';
-    return valid;
-}
-
-function validateChatName() {
-    const name = elements.name.username.value.trim();
-    const valid = name.length >= 2 && name.length <= 20;
-    elements.name.error.style.display = valid ? 'none' : 'block';
-    return valid;
-}
-
-// Chat
-function initializeChat() {
-    messagesRef = database.ref('messages/public');
-    presenceRef = database.ref('presence');
-    typingRef = database.ref('typing');
-    callsRef = database.ref('calls');
-
-    database.ref('.info/connected').on('value', snapshot => {
-        const isConnected = snapshot.val();
-        elements.chat.status.textContent = isConnected ? "✔ Conectado" : "✖ Desconectado";
-        elements.chat.status.className = `connection-status ${isConnected ? 'connected' : 'disconnected'}`;
-
-        if (isConnected) {
-            userRef = presenceRef.push({
-                user: currentUser,
-                timestamp: firebase.database.ServerValue.TIMESTAMP,
-                online: true
-            });
-            userRef.onDisconnect().remove();
-        }
-    });
-
-    presenceRef.orderByChild('online').equalTo(true).on('value', snapshot => {
-        onlineUsers = {};
-        snapshot.forEach(child => {
-            const userData = child.val();
-            if (userData.online) onlineUsers[userData.user] = true;
-        });
-        elements.chat.onlineCount.textContent = Object.keys(onlineUsers).length;
-        updateUserList();
-    });
-
-    setupMessageListeners();
-    setupCallListeners();
-}
-
-function setupMessageListeners() {
-    messagesRef.limitToLast(50).on('child_added', snapshot => {
-        if (activeChat === "public") displayMessage(snapshot.val(), "public");
-    });
-
-    database.ref('messages/private').on('child_added', snapshot => {
-        const messagesRef = database.ref(`messages/private/${snapshot.key}`);
-        messagesRef.on('child_added', messageSnapshot => {
-            const message = messageSnapshot.val();
-            if (message.to === currentUser || message.from === currentUser) {
-                const otherUser = message.from === currentUser ? message.to : message.from;
-                if (activeChat === `private-${otherUser}`) {
-                    displayMessage(message, "private");
-                } else {
-                    markUnread(otherUser);
-                }
-            }
-        });
-    });
-}
-
-// Chamadas de voz
-function setupCallListeners() {
-    callsRef.orderByChild('to').equalTo(currentUser).on('child_added', snapshot => {
-        const callData = snapshot.val();
-        if (callData.status === 'requested' && !currentCall) {
-            showIncomingCall(callData.from, snapshot.key);
-        }
-    });
-}
-
-async function setupWebRTC(callId, role) {
-    try {
-        localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        
-        peerConnection = new RTCPeerConnection({
-            iceServers: [
-                { urls: 'stun:stun.l.google.com:19302' },
-                { urls: 'stun:stun1.l.google.com:19302' }
-            ]
-        });
-
-        localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
-
-        peerConnection.ontrack = event => {
-            const audio = new Audio();
-            audio.srcObject = event.streams[0];
-            audio.play();
+        // Elementos
+        const elements = {
+            login: document.getElementById('login-container'),
+            name: document.getElementById('name-container'),
+            chat: document.getElementById('chat-container'),
+            msgInput: document.getElementById('message-input'),
+            msgContainer: document.getElementById('messages-container'),
+            userList: document.getElementById('user-list'),
+            onlineCount: document.getElementById('online-count'),
+            callContainer: document.getElementById('call-container'),
+            callInfo: document.getElementById('call-info'),
+            callStatus: document.getElementById('call-status'),
+            callButtons: document.getElementById('call-buttons'),
+            notification: document.getElementById('notification')
         };
 
-        if (role === 'caller') {
-            const offer = await peerConnection.createOffer();
-            await peerConnection.setLocalDescription(offer);
-            database.ref(`calls/${callId}`).update({ offer });
-        } else {
-            database.ref(`calls/${callId}/offer`).on('value', async snapshot => {
-                const offer = snapshot.val();
-                if (offer) {
-                    await peerConnection.setRemoteDescription(offer);
-                    const answer = await peerConnection.createAnswer();
-                    await peerConnection.setLocalDescription(answer);
-                    database.ref(`calls/${callId}`).update({ answer });
+        // Variáveis
+        let currentUser = "";
+        let peerConnection, localStream, currentCall;
+
+        // Funções básicas
+        function showNotification(msg, duration=3000) {
+            elements.notification.textContent = msg;
+            elements.notification.style.display = 'block';
+            setTimeout(() => elements.notification.style.display = 'none', duration);
+        }
+
+        // Login
+        document.getElementById('login-btn').addEventListener('click', () => {
+            if (document.getElementById('login-username').value !== "VilorCreated" || 
+                document.getElementById('login-password').value !== "This") {
+                return showNotification("Credenciais inválidas");
+            }
+            elements.login.style.display = 'none';
+            elements.name.style.display = 'block';
+        });
+
+        // Nome
+        document.getElementById('confirm-name-btn').addEventListener('click', () => {
+            currentUser = document.getElementById('chat-username').value.trim();
+            if (currentUser.length < 2) return showNotification("Nome muito curto");
+            elements.name.style.display = 'none';
+            elements.chat.style.display = 'block';
+            initializeChat();
+        });
+
+        // Chat
+        function initializeChat() {
+            // Firebase refs
+            const messagesRef = db.ref('messages/public');
+            const presenceRef = db.ref('presence');
+            const callsRef = db.ref('calls');
+
+            // Status de conexão
+            db.ref('.info/connected').on('value', snap => {
+                if (snap.val()) {
+                    const userRef = presenceRef.push();
+                    userRef.set({ user: currentUser, online: true });
+                    userRef.onDisconnect().remove();
+                }
+            });
+
+            // Usuários online
+            presenceRef.orderByChild('online').equalTo(true).on('value', snap => {
+                const users = {};
+                snap.forEach(child => users[child.val().user] = true);
+                elements.onlineCount.textContent = Object.keys(users).length;
+                updateUserList(users);
+            });
+
+            // Mensagens
+            messagesRef.limitToLast(50).on('child_added', snap => {
+                displayMessage(snap.val());
+            });
+
+            // Enviar mensagem
+            document.getElementById('send-btn').addEventListener('click', sendMessage);
+            elements.msgInput.addEventListener('keypress', e => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    sendMessage();
+                }
+            });
+
+            // Chamadas
+            callsRef.orderByChild('to').equalTo(currentUser).on('child_added', snap => {
+                const call = snap.val();
+                if (call.status === 'requested' && !currentCall) {
+                    showIncomingCall(call.from, snap.key);
                 }
             });
         }
 
-        database.ref(`calls/${callId}/iceCandidates/${role === 'caller' ? 'callee' : 'caller'}`)
-            .on('child_added', snapshot => {
-                const candidate = snapshot.val().candidate;
-                if (candidate) peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+        function updateUserList(users) {
+            elements.userList.innerHTML = '';
+            Object.keys(users).forEach(user => {
+                if (user === currentUser) return;
+                const userEl = document.createElement('div');
+                userEl.className = 'user-item';
+                userEl.innerHTML = `${user} <button class="call-btn">Chamar</button>`;
+                userEl.querySelector('.call-btn').addEventListener('click', () => startCall(user));
+                elements.userList.appendChild(userEl);
+            });
+        }
+
+        function displayMessage(msg) {
+            const msgEl = document.createElement('div');
+            msgEl.className = `message ${msg.user === currentUser ? 'user-message' : ''}`;
+            msgEl.innerHTML = `<strong>${msg.user}</strong>: ${msg.text}`;
+            elements.msgContainer.appendChild(msgEl);
+            elements.msgContainer.scrollTop = elements.msgContainer.scrollHeight;
+        }
+
+        function sendMessage() {
+            const text = elements.msgInput.value.trim();
+            if (!text) return;
+            db.ref('messages/public').push({
+                user: currentUser,
+                text: text,
+                timestamp: Date.now()
+            });
+            elements.msgInput.value = '';
+        }
+
+        // Chamadas de voz
+        async function startCall(toUser) {
+            const callId = db.ref('calls').push().key;
+            currentCall = { id: callId, to: toUser };
+            
+            db.ref(`calls/${callId}`).set({
+                from: currentUser,
+                to: toUser,
+                status: 'requested'
             });
 
-    } catch (error) {
-        console.error("WebRTC error:", error);
-        endCall();
-    }
-}
+            elements.callInfo.textContent = `Chamando ${toUser}...`;
+            elements.callButtons.innerHTML = '<button class="end-call">Cancelar</button>';
+            elements.callContainer.style.display = 'flex';
+            
+            document.querySelector('.end-call').addEventListener('click', endCall);
+            
+            db.ref(`calls/${callId}/status`).on('value', snap => {
+                if (snap.val() === 'answered') {
+                    setupWebRTC(callId, 'caller');
+                } else if (snap.val() === 'rejected' || snap.val() === 'ended') {
+                    endCall();
+                }
+            });
+        }
 
-function endCall() {
-    if (currentCall) {
-        if (peerConnection) peerConnection.close();
-        if (localStream) localStream.getTracks().forEach(track => track.stop());
-        callsRef.child(currentCall.id).update({ status: 'ended' });
-        elements.call.container.style.display = 'none';
-        currentCall = null;
-    }
-}
+        function showIncomingCall(from, callId) {
+            elements.callInfo.textContent = `Chamada de ${from}`;
+            elements.callButtons.innerHTML = `
+                <button class="accept-call">Atender</button>
+                <button class="reject-call">Recusar</button>
+            `;
+            elements.callContainer.style.display = 'flex';
+            currentCall = { id: callId, from: from };
+            
+            document.querySelector('.accept-call').addEventListener('click', () => {
+                db.ref(`calls/${callId}`).update({ status: 'answered' });
+                setupWebRTC(callId, 'callee');
+            });
+            
+            document.querySelector('.reject-call').addEventListener('click', () => {
+                db.ref(`calls/${callId}`).update({ status: 'rejected' });
+                endCall();
+            });
+        }
 
-// Event listeners
-elements.login.btn.addEventListener('click', async () => {
-    if (!validateLogin()) return;
-    elements.login.spinner.style.display = 'inline-block';
-    await new Promise(resolve => setTimeout(resolve, 800));
-    elements.login.container.style.display = 'none';
-    elements.name.container.style.display = 'block';
-    elements.login.spinner.style.display = 'none';
-});
+        async function setupWebRTC(callId, role) {
+            try {
+                localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                peerConnection = new RTCPeerConnection({
+                    iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+                });
 
-elements.name.btn.addEventListener('click', async () => {
-    if (!validateChatName()) return;
-    elements.name.spinner.style.display = 'inline-block';
-    currentUser = elements.name.username.value.trim();
-    await new Promise(resolve => setTimeout(resolve, 600));
-    elements.name.container.style.display = 'none';
-    elements.chat.container.style.display = 'block';
-    initializeChat();
-    elements.name.spinner.style.display = 'none';
-});
+                localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
 
-// Inicialização
-window.addEventListener('beforeunload', () => {
-    if (userRef) userRef.remove();
-    if (currentCall) endCall();
-});
+                peerConnection.ontrack = e => {
+                    const audio = new Audio();
+                    audio.srcObject = e.streams[0];
+                    audio.play();
+                };
+
+                if (role === 'caller') {
+                    const offer = await peerConnection.createOffer();
+                    await peerConnection.setLocalDescription(offer);
+                    db.ref(`calls/${callId}`).update({ offer });
+                } else {
+                    db.ref(`calls/${callId}/offer`).on('value', async snap => {
+                        const offer = snap.val();
+                        if (offer) {
+                            await peerConnection.setRemoteDescription(offer);
+                            const answer = await peerConnection.createAnswer();
+                            await peerConnection.setLocalDescription(answer);
+                            db.ref(`calls/${callId}`).update({ answer });
+                        }
+                    });
+                }
+
+                db.ref(`calls/${callId}/iceCandidates/${role === 'caller' ? 'callee' : 'caller'}`)
+                    .on('child_added', snap => {
+                        const candidate = snap.val().candidate;
+                        if (candidate) peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+                    });
+
+            } catch (error) {
+                console.error("WebRTC error:", error);
+                endCall();
+            }
+        }
+
+        function endCall() {
+            if (currentCall) {
+                if (peerConnection) peerConnection.close();
+                if (localStream) localStream.getTracks().forEach(track => track.stop());
+                db.ref(`calls/${currentCall.id}`).update({ status: 'ended' });
+                elements.callContainer.style.display = 'none';
+                currentCall = null;
+            }
+        }
     </script>
 </body>
 </html>
