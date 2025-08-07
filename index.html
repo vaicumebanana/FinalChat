@@ -526,868 +526,240 @@
     
     <script>
         // Configuração do Firebase
-        const firebaseConfig = {
-            databaseURL: "https://vilorchatmessage-default-rtdb.firebaseio.com/"
-        };
-        
-        // Inicializa o Firebase
-        firebase.initializeApp(firebaseConfig);
-        const database = firebase.database();
+const firebaseConfig = {
+    databaseURL: "https://vilorchatmessage-default-rtdb.firebaseio.com/"
+};
 
-        // Elementos da interface
-        const loginContainer = document.getElementById('login-container');
-        const nameContainer = document.getElementById('name-container');
-        const chatContainer = document.getElementById('chat-container');
-        const loginBtn = document.getElementById('login-btn');
-        const loginSpinner = document.getElementById('login-spinner');
-        const loginText = document.getElementById('login-text');
-        const confirmNameBtn = document.getElementById('confirm-name-btn');
-        const nameSpinner = document.getElementById('name-spinner');
-        const nameText = document.getElementById('name-text');
-        const loginUsername = document.getElementById('login-username');
-        const loginPassword = document.getElementById('login-password');
-        const chatUsername = document.getElementById('chat-username');
-        const messagesContainer = document.getElementById('messages-container');
-        const messageInput = document.getElementById('message-input');
-        const sendBtn = document.getElementById('send-btn');
-        const onlineCountSpan = document.getElementById('online-count');
-        const userListDiv = document.getElementById('user-list');
-        const typingIndicator = document.getElementById('typing-indicator');
-        const notification = document.getElementById('notification');
-        const chatTitle = document.getElementById('chat-title');
-        const backButton = document.getElementById('back-button');
-        const connectionStatus = document.getElementById('connection-status');
-        const loginError = document.getElementById('login-error');
-        const passwordError = document.getElementById('password-error');
-        const nameError = document.getElementById('name-error');
-        
-        // Elementos de chamada de voz
-        const callContainer = document.getElementById('call-container');
-        const callInfo = document.getElementById('call-info');
-        const callStatus = document.getElementById('call-status');
-        const callButtons = document.getElementById('call-buttons');
-        const endCallButton = document.getElementById('end-call-button');
-        const audioVisualizer = document.getElementById('audio-visualizer');
+// Inicializa o Firebase
+firebase.initializeApp(firebaseConfig);
+const database = firebase.database();
 
-        // Credenciais fixas
-        const FIXED_LOGIN = "VilorCreated";
-        const FIXED_PASSWORD = "This";
+// Variáveis globais
+let currentUser = "";
+let userRef, presenceRef, typingRef, messagesRef, callsRef;
+let onlineUsers = {};
+let activeChat = "public";
+let privateChats = {};
+let unreadMessages = {};
+let peerConnection, localStream, currentCall;
 
-        // Variáveis globais
-        let currentUser = "";
-        let userRef;
-        let presenceRef;
-        let typingRef;
-        let messagesRef;
-        let callsRef;
-        let lastTypingTime = 0;
-        let isTyping = false;
-        let onlineUsers = {};
-        let activeChat = "public";
-        let privateChats = {};
-        let unreadMessages = {};
-        let connectionStatusRef;
-        let isConnected = false;
-        let presenceCleanupInterval;
-        let messageCount = 0;
-        const MAX_MESSAGES = 10000;
-        
-        // Variáveis de WebRTC (somente áudio)
-        let peerConnection;
-        let localStream;
-        let currentCall = null;
-        let callRequestRef = null;
-        let callAnswerRef = null;
-        let iceCandidatesRef = null;
-        let audioContext;
-        let analyser;
-        let microphone;
-        let dataArray;
-        let animationId;
+// Elementos da interface
+const elements = {
+    login: {
+        container: document.getElementById('login-container'),
+        btn: document.getElementById('login-btn'),
+        spinner: document.getElementById('login-spinner'),
+        text: document.getElementById('login-text'),
+        username: document.getElementById('login-username'),
+        password: document.getElementById('login-password'),
+        error: document.getElementById('login-error'),
+        passwordError: document.getElementById('password-error')
+    },
+    name: {
+        container: document.getElementById('name-container'),
+        btn: document.getElementById('confirm-name-btn'),
+        spinner: document.getElementById('name-spinner'),
+        text: document.getElementById('name-text'),
+        username: document.getElementById('chat-username'),
+        error: document.getElementById('name-error')
+    },
+    chat: {
+        container: document.getElementById('chat-container'),
+        messages: document.getElementById('messages-container'),
+        input: document.getElementById('message-input'),
+        sendBtn: document.getElementById('send-btn'),
+        onlineCount: document.getElementById('online-count'),
+        userList: document.getElementById('user-list'),
+        typingIndicator: document.getElementById('typing-indicator'),
+        title: document.getElementById('chat-title'),
+        backButton: document.getElementById('back-button'),
+        status: document.getElementById('connection-status')
+    },
+    call: {
+        container: document.getElementById('call-container'),
+        info: document.getElementById('call-info'),
+        status: document.getElementById('call-status'),
+        buttons: document.getElementById('call-buttons'),
+        endBtn: document.getElementById('end-call-button'),
+        visualizer: document.getElementById('audio-visualizer')
+    },
+    notification: document.getElementById('notification')
+};
 
-        // Mostrar notificação
-        function showNotification(message, duration = 3000) {
-            notification.textContent = message;
-            notification.style.display = 'block';
-            
-            setTimeout(() => {
-                notification.style.display = 'none';
-            }, duration);
+// Funções básicas
+function showNotification(message, duration = 3000) {
+    elements.notification.textContent = message;
+    elements.notification.style.display = 'block';
+    setTimeout(() => elements.notification.style.display = 'none', duration);
+}
+
+// Login e nome
+function validateLogin() {
+    const valid = elements.login.username.value.trim() === FIXED_LOGIN && 
+                 elements.login.password.value.trim() === FIXED_PASSWORD;
+    
+    elements.login.error.style.display = valid ? 'none' : 'block';
+    elements.login.passwordError.style.display = valid ? 'none' : 'block';
+    return valid;
+}
+
+function validateChatName() {
+    const name = elements.name.username.value.trim();
+    const valid = name.length >= 2 && name.length <= 20;
+    elements.name.error.style.display = valid ? 'none' : 'block';
+    return valid;
+}
+
+// Chat
+function initializeChat() {
+    messagesRef = database.ref('messages/public');
+    presenceRef = database.ref('presence');
+    typingRef = database.ref('typing');
+    callsRef = database.ref('calls');
+
+    database.ref('.info/connected').on('value', snapshot => {
+        const isConnected = snapshot.val();
+        elements.chat.status.textContent = isConnected ? "✔ Conectado" : "✖ Desconectado";
+        elements.chat.status.className = `connection-status ${isConnected ? 'connected' : 'disconnected'}`;
+
+        if (isConnected) {
+            userRef = presenceRef.push({
+                user: currentUser,
+                timestamp: firebase.database.ServerValue.TIMESTAMP,
+                online: true
+            });
+            userRef.onDisconnect().remove();
         }
+    });
 
-        // Validar login
-        function validateLogin() {
-            const username = loginUsername.value.trim();
-            const password = loginPassword.value.trim();
-            
-            if (username !== FIXED_LOGIN) {
-                loginError.textContent = "Login incorreto! Use: VilorCreated";
-                loginError.style.display = 'block';
-                return false;
-            }
-            
-            if (password !== FIXED_PASSWORD) {
-                passwordError.textContent = "Senha incorreta! Use: This";
-                passwordError.style.display = 'block';
-                return false;
-            }
-            
-            loginError.style.display = 'none';
-            passwordError.style.display = 'none';
-            return true;
-        }
-
-        // Validar nome do chat
-        function validateChatName() {
-            const name = chatUsername.value.trim();
-            
-            if (name.length < 2) {
-                nameError.textContent = "O nome deve ter pelo menos 2 caracteres";
-                nameError.style.display = 'block';
-                return false;
-            }
-            
-            if (name.length > 20) {
-                nameError.textContent = "O nome deve ter no máximo 20 caracteres";
-                nameError.style.display = 'block';
-                return false;
-            }
-            
-            nameError.style.display = 'none';
-            return true;
-        }
-
-        // Evento de login
-        loginBtn.addEventListener('click', async () => {
-            if (!validateLogin()) return;
-            
-            loginSpinner.style.display = 'inline-block';
-            loginText.textContent = "Verificando...";
-            loginBtn.disabled = true;
-            
-            await new Promise(resolve => setTimeout(resolve, 800));
-            
-            loginContainer.style.display = 'none';
-            nameContainer.style.display = 'block';
-            chatUsername.focus();
-            
-            loginSpinner.style.display = 'none';
-            loginText.textContent = "Entrar";
-            loginBtn.disabled = false;
+    presenceRef.orderByChild('online').equalTo(true).on('value', snapshot => {
+        onlineUsers = {};
+        snapshot.forEach(child => {
+            const userData = child.val();
+            if (userData.online) onlineUsers[userData.user] = true;
         });
+        elements.chat.onlineCount.textContent = Object.keys(onlineUsers).length;
+        updateUserList();
+    });
 
-        // Evento de confirmação do nome
-        confirmNameBtn.addEventListener('click', async () => {
-            if (!validateChatName()) return;
-            
-            nameSpinner.style.display = 'inline-block';
-            nameText.textContent = "Entrando...";
-            confirmNameBtn.disabled = true;
-            
-            currentUser = chatUsername.value.trim();
-            
-            await new Promise(resolve => setTimeout(resolve, 600));
-            
-            nameContainer.style.display = 'none';
-            chatContainer.style.display = 'block';
-            initializeChat();
-            showNotification(`Bem-vindo, ${currentUser}!`, 4000);
-            messageInput.focus();
-            
-            nameSpinner.style.display = 'none';
-            nameText.textContent = "Entrar no Chat";
-            confirmNameBtn.disabled = false;
-        });
+    setupMessageListeners();
+    setupCallListeners();
+}
 
-        function initializeChat() {
-            // Referências do Firebase
-            messagesRef = database.ref('messages/public');
-            presenceRef = database.ref('presence');
-            typingRef = database.ref('typing');
-            callsRef = database.ref('calls');
-            connectionStatusRef = database.ref('.info/connected');
-            
-            // Monitorar status de conexão
-            connectionStatusRef.on('value', (snapshot) => {
-                isConnected = snapshot.val() === true;
-                
-                if (isConnected) {
-                    connectionStatus.textContent = "✔ Conectado ao servidor";
-                    connectionStatus.className = "connection-status connected";
-                    
-                    // Registrar usuário online
-                    userRef = presenceRef.push();
-                    userRef.set({
-                        user: currentUser,
-                        timestamp: firebase.database.ServerValue.TIMESTAMP,
-                        online: true
-                    });
-                    
-                    // Configurar para remover quando desconectar
-                    userRef.onDisconnect().remove();
-                    
-                    // Limpeza periódica de usuários offline
-                    presenceCleanupInterval = setInterval(cleanupOfflineUsers, 300000);
-                    
-                    // Iniciar monitoramento de chamadas
-                    setupCallMonitoring();
+function setupMessageListeners() {
+    messagesRef.limitToLast(50).on('child_added', snapshot => {
+        if (activeChat === "public") displayMessage(snapshot.val(), "public");
+    });
+
+    database.ref('messages/private').on('child_added', snapshot => {
+        const messagesRef = database.ref(`messages/private/${snapshot.key}`);
+        messagesRef.on('child_added', messageSnapshot => {
+            const message = messageSnapshot.val();
+            if (message.to === currentUser || message.from === currentUser) {
+                const otherUser = message.from === currentUser ? message.to : message.from;
+                if (activeChat === `private-${otherUser}`) {
+                    displayMessage(message, "private");
                 } else {
-                    connectionStatus.textContent = "✖ Desconectado do servidor - tentando reconectar...";
-                    connectionStatus.className = "connection-status disconnected";
+                    markUnread(otherUser);
                 }
-            });
-            
-            // Monitorar usuários online
-            presenceRef.orderByChild('online').equalTo(true).on('value', (snapshot) => {
-                onlineUsers = {};
-                const users = snapshot.val() || {};
-                
-                Object.keys(users).forEach(key => {
-                    const userData = users[key];
-                    if (userData.online === true) {
-                        onlineUsers[userData.user] = {
-                            key: key,
-                            timestamp: userData.timestamp
-                        };
-                    }
-                });
-                
-                onlineCountSpan.textContent = Object.keys(onlineUsers).length.toLocaleString();
-                updateUserList();
-            });
-            
-            // Monitorar quem está digitando
-            typingRef.on('child_added', (snapshot) => {
-                const typingData = snapshot.val();
-                if (typingData.user !== currentUser && typingData.chat === activeChat) {
-                    typingIndicator.textContent = `${typingData.user} está digitando...`;
-                    setTimeout(() => {
-                        typingIndicator.textContent = "";
-                    }, 3000);
-                }
-            });
-            
-            // Carregar mensagens públicas
-            loadPublicMessages();
-            
-            // Configurar ouvintes de mensagens privadas
-            setupPrivateChatListeners();
-            
-            // Configurar envio de mensagens
-            sendBtn.addEventListener('click', sendMessage);
-            messageInput.addEventListener('keypress', (e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault();
-                    sendMessage();
-                }
-            });
-            
-            // Monitorar digitação
-            let typingTimeout;
-            messageInput.addEventListener('input', () => {
-                clearTimeout(typingTimeout);
-                updateTyping();
-                typingTimeout = setTimeout(stopTyping, 2000);
-            });
-            
-            // Botão para voltar ao chat público
-            backButton.addEventListener('click', () => {
-                switchChat("public");
-                backButton.style.display = 'none';
-                chatTitle.textContent = "Chat Público";
-            });
-            
-            // Auto-resize textarea
-            messageInput.addEventListener('input', function() {
-                this.style.height = 'auto';
-                this.style.height = (this.scrollHeight) + 'px';
-            });
-            
-            // Configurar botão de encerrar chamada
-            endCallButton.addEventListener('click', endCall);
-        }
-        
-        function cleanupOfflineUsers() {
-            if (!isConnected) return;
-            
-            const cutoff = Date.now() - 300000;
-            
-            presenceRef.orderByChild('timestamp').endAt(cutoff).once('value', (snapshot) => {
-                const updates = {};
-                snapshot.forEach((child) => {
-                    updates[child.key] = null;
-                });
-                
-                if (Object.keys(updates).length > 0) {
-                    presenceRef.update(updates);
-                }
-            });
-        }
-        
-        function loadPublicMessages() {
-            messagesRef.limitToLast(50).on('child_added', (snapshot) => {
-                const message = snapshot.val();
-                if (activeChat === "public") {
-                    displayMessage(message, "public");
-                    checkMessageLimit();
-                }
-            });
-        }
-        
-        function checkMessageLimit() {
-            messageCount++;
-            if (messageCount >= MAX_MESSAGES) {
-                database.ref('messages').set({ public: {}, private: {} })
-                    .then(() => {
-                        showNotification("O chat foi renovado automaticamente!");
-                        messageCount = 0;
-                    })
-                    .catch(error => {
-                        console.error("Erro ao resetar mensagens:", error);
-                    });
             }
-        }
-        
-        function setupPrivateChatListeners() {
-            database.ref('messages/private').on('child_added', (snapshot) => {
-                const conversationId = snapshot.key;
-                const messagesRef = database.ref(`messages/private/${conversationId}`);
-                
-                messagesRef.on('child_added', (messageSnapshot) => {
-                    const message = messageSnapshot.val();
-                    
-                    if (message.to === currentUser || message.from === currentUser) {
-                        const otherUser = message.from === currentUser ? message.to : message.from;
-                        
-                        if (!privateChats[otherUser]) {
-                            privateChats[otherUser] = true;
-                        }
-                        
-                        if (activeChat === `private-${otherUser}`) {
-                            displayMessage(message, "private");
-                        } else {
-                            markUnread(otherUser);
-                        }
-                        
-                        checkMessageLimit();
-                    }
-                });
-            });
-        }
-        
-        function updateUserList() {
-            const fragment = document.createDocumentFragment();
-            const currentUsers = Object.keys(onlineUsers).sort();
-            
-            currentUsers.forEach(user => {
-                if (user === currentUser) return;
-                
-                const userElement = document.createElement('div');
-                userElement.className = 'user-item';
-                
-                const userContent = document.createElement('div');
-                userContent.style.display = 'flex';
-                userContent.style.justifyContent = 'space-between';
-                userContent.style.width = '100%';
-                userContent.style.alignItems = 'center';
-                
-                const userName = document.createElement('span');
-                userName.textContent = user;
-                
-                const badges = document.createElement('div');
-                
-                if (privateChats[user]) {
-                    const chatBadge = document.createElement('span');
-                    chatBadge.className = 'badge';
-                    chatBadge.textContent = 'Chat';
-                    badges.appendChild(chatBadge);
-                }
-                
-                if (unreadMessages[user]) {
-                    const unreadBadge = document.createElement('span');
-                    unreadBadge.className = 'badge';
-                    unreadBadge.textContent = unreadMessages[user];
-                    unreadBadge.style.marginLeft = '5px';
-                    badges.appendChild(unreadBadge);
-                }
-                
-                const callButton = document.createElement('button');
-                callButton.className = 'badge call-badge';
-                callButton.textContent = 'Chamar';
-                callButton.style.marginLeft = '5px';
-                callButton.style.cursor = 'pointer';
-                callButton.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    startCall(user);
-                });
-                badges.appendChild(callButton);
-                
-                userContent.appendChild(userName);
-                userContent.appendChild(badges);
-                userElement.appendChild(userContent);
-                
-                userElement.addEventListener('click', () => {
-                    startPrivateChat(user);
-                });
-                
-                fragment.appendChild(userElement);
-            });
-            
-            const currentUserElement = document.createElement('div');
-            currentUserElement.className = 'user-item current-user';
-            currentUserElement.textContent = `${currentUser} (você)`;
-            fragment.insertBefore(currentUserElement, fragment.firstChild);
-            
-            userListDiv.innerHTML = '';
-            userListDiv.appendChild(fragment);
-        }
-        
-        function startPrivateChat(user) {
-            if (!privateChats[user]) {
-                privateChats[user] = true;
-            }
-            
-            switchChat(`private-${user}`);
-            backButton.style.display = 'block';
-            chatTitle.textContent = `Chat com ${user}`;
-            
-            if (unreadMessages[user]) {
-                delete unreadMessages[user];
-                updateUserList();
-            }
-        }
-        
-        function markUnread(user) {
-            if (!unreadMessages[user]) {
-                unreadMessages[user] = 1;
-            } else {
-                unreadMessages[user]++;
-            }
-            
-            updateUserList();
-        }
-        
-        function switchChat(chatId) {
-            activeChat = chatId;
-            messagesContainer.innerHTML = "";
-            typingIndicator.textContent = "";
-            
-            if (chatId === "public") {
-                messagesRef = database.ref('messages/public');
-                messagesRef.limitToLast(50).once('value', (snapshot) => {
-                    const messages = [];
-                    snapshot.forEach((child) => {
-                        messages.push(child.val());
-                    });
-                    
-                    messages.sort((a, b) => a.timestamp - b.timestamp);
-                    messages.forEach(msg => displayMessage(msg, "public"));
-                });
-            } else {
-                const privateUser = chatId.replace('private-', '');
-                const conversationId = getConversationId(privateUser);
-                
-                database.ref(`messages/private/${conversationId}`).limitToLast(50).once('value', (snapshot) => {
-                    const messages = [];
-                    snapshot.forEach((child) => {
-                        messages.push(child.val());
-                    });
-                    
-                    messages.sort((a, b) => a.timestamp - b.timestamp);
-                    messages.forEach(msg => displayMessage(msg, "private"));
-                });
-            }
-        }
-        
-        function getConversationId(user) {
-            const users = [currentUser, user].sort();
-            return `${users[0]}_${users[1]}`;
-        }
-        
-        function updateTyping() {
-            if (!isTyping) {
-                isTyping = true;
-                typingRef.push({
-                    user: currentUser,
-                    chat: activeChat,
-                    timestamp: firebase.database.ServerValue.TIMESTAMP
-                }).then(ref => {
-                    setTimeout(() => ref.remove(), 3000);
-                });
-            }
-            
-            lastTypingTime = Date.now();
-        }
-        
-        function stopTyping() {
-            isTyping = false;
-        }
-        
-        function sendMessage() {
-            const messageText = messageInput.value.trim();
-            if (!messageText) return;
-            
-            stopTyping();
-            const timestamp = firebase.database.ServerValue.TIMESTAMP;
-            
-            if (activeChat === "public") {
-                messagesRef.push({
-                    user: currentUser,
-                    text: messageText,
-                    timestamp: timestamp
-                });
-            } else {
-                const privateUser = activeChat.replace('private-', '');
-                const conversationId = getConversationId(privateUser);
-                
-                database.ref(`messages/private/${conversationId}`).push({
-                    from: currentUser,
-                    to: privateUser,
-                    text: messageText,
-                    timestamp: timestamp,
-                    conversation: conversationId
-                });
-            }
-            
-            messageInput.value = '';
-            messageInput.style.height = 'auto';
-            messagesContainer.scrollTop = messagesContainer.scrollHeight;
-        }
-        
-        function displayMessage(message, type) {
-            const messageDiv = document.createElement('div');
-            messageDiv.className = `message ${type === "private" ? 'private-message' : ''} ${
-                (message.user === currentUser || message.from === currentUser) ? 'user-message' : ''
-            }`;
-            
-            const sender = type === "public" ? message.user : message.from;
-            const time = new Date(message.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
-            
-            messageDiv.innerHTML = `
-                <div class="message-header">
-                    <span class="sender-name">${sender}</span>
-                    ${(sender === currentUser) ? '<span class="badge">Você</span>' : ''}
-                    ${type === "private" ? '<span class="badge">Privado</span>' : ''}
-                    <span class="message-time">${time}</span>
-                </div>
-                <div class="message-content">${message.text}</div>
-            `;
-            
-            messagesContainer.appendChild(messageDiv);
-            messagesContainer.scrollTop = messagesContainer.scrollHeight;
-        }
-        
-        // Sistema de Chamadas de Voz
-        function setupCallMonitoring() {
-            callsRef.orderByChild('to').equalTo(currentUser).on('child_added', (snapshot) => {
-                const callData = snapshot.val();
-                
-                if (callData.status === 'requested' && !currentCall) {
-                    showIncomingCall(callData.from, snapshot.key);
-                }
-            });
-        }
-        
-        function showIncomingCall(from, callId) {
-            callInfo.textContent = `Chamada de ${from}`;
-            callStatus.textContent = "Chamando...";
-            
-            callButtons.innerHTML = '';
-            
-            const acceptButton = document.createElement('button');
-            acceptButton.className = 'call-button accept-call';
-            acceptButton.innerHTML = '<span class="call-icon">✓</span> Atender';
-            acceptButton.addEventListener('click', () => {
-                answerCall(callId, from);
-            });
-            
-            const rejectButton = document.createElement('button');
-            rejectButton.className = 'call-button reject-call';
-            rejectButton.innerHTML = '<span class="call-icon">✖</span> Recusar';
-            rejectButton.addEventListener('click', () => {
-                rejectCall(callId);
-            });
-            
-            callButtons.appendChild(acceptButton);
-            callButtons.appendChild(rejectButton);
-            
-            callContainer.style.display = 'flex';
-            currentCall = { id: callId, from: from, type: 'incoming' };
-            
-            setTimeout(() => {
-                if (currentCall && currentCall.id === callId) {
-                    rejectCall(callId);
-                    showNotification(`${from} não atendeu sua chamada`);
-                }
-            }, 45000);
-        }
-        
-        function startCall(toUser) {
-            if (currentCall) {
-                showNotification("Você já está em uma chamada");
-                return;
-            }
-            
-            const callId = callsRef.push().key;
-            currentCall = { id: callId, to: toUser, type: 'outgoing' };
-            
-            callsRef.child(callId).set({
-                from: currentUser,
-                to: toUser,
-                status: 'requested',
-                timestamp: firebase.database.ServerValue.TIMESTAMP
-            });
-            
-            callInfo.textContent = `Chamando ${toUser}...`;
-            callStatus.textContent = "Aguardando resposta...";
-            callButtons.innerHTML = '';
-            
-            const endButton = document.createElement('button');
-            endButton.className = 'call-button end-call';
-            endButton.innerHTML = '<span class="call-icon">✖</span> Cancelar';
-            endButton.addEventListener('click', endCall);
-            callButtons.appendChild(endButton);
-            
-            callContainer.style.display = 'flex';
-            
-            callsRef.child(callId).on('value', (snapshot) => {
-                const callData = snapshot.val();
-                if (!callData) return;
-                
-                if (callData.status === 'answered') {
-                    callStatus.textContent = "Chamada em andamento...";
-                    setupWebRTC(callId, 'caller');
-                } else if (callData.status === 'rejected') {
-                    endCall();
-                    showNotification(`${toUser} recusou sua chamada`);
-                } else if (callData.status === 'ended') {
-                    endCall();
-                    showNotification(`Chamada com ${toUser} encerrada`);
-                }
-            });
-            
-            setTimeout(() => {
-                if (currentCall && currentCall.id === callId) {
-                    endCall();
-                    showNotification(`${toUser} não está respondendo`);
-                }
-            }, 45000);
-        }
-        
-        async function answerCall(callId, from) {
-            try {
-                await setupWebRTC(callId, 'callee');
-                
-                callsRef.child(callId).update({
-                    status: 'answered',
-                    answeredAt: firebase.database.ServerValue.TIMESTAMP
-                });
-                
-                callInfo.textContent = `Em chamada com ${from}`;
-                callStatus.textContent = "Chamada em andamento...";
-                
-                callButtons.innerHTML = '';
-                const endButton = document.createElement('button');
-                endButton.className = 'call-button end-call';
-                endButton.innerHTML = '<span class="call-icon">✖</span> Encerrar';
-                endButton.addEventListener('click', endCall);
-                callButtons.appendChild(endButton);
-                
-                currentCall = { 
-                    id: callId, 
-                    from: from, 
-                    type: 'incoming', 
-                    answered: true
-                };
-            } catch (error) {
-                console.error("Erro ao atender chamada:", error);
-                endCall();
-                showNotification("Erro ao iniciar chamada");
-            }
-        }
-        
-        function rejectCall(callId) {
-            callsRef.child(callId).update({
-                status: 'rejected',
-                endedAt: firebase.database.ServerValue.TIMESTAMP
-            });
-            endCall();
-        }
-        
-        function endCall() {
-            if (currentCall) {
-                if (currentCall.id) {
-                    callsRef.child(currentCall.id).update({
-                        status: 'ended',
-                        endedAt: firebase.database.ServerValue.TIMESTAMP
-                    });
-                }
-                
-                // Parar todos os streams e conexões
-                stopAudioStream();
-                
-                if (peerConnection) {
-                    peerConnection.close();
-                    peerConnection = null;
-                }
-                
-                callContainer.style.display = 'none';
-                currentCall = null;
-            }
-        }
-        
-        function stopAudioStream() {
-            if (localStream) {
-                localStream.getTracks().forEach(track => track.stop());
-                localStream = null;
-            }
-            
-            if (audioContext) {
-                if (animationId) {
-                    cancelAnimationFrame(animationId);
-                }
-                if (microphone) {
-                    microphone.disconnect();
-                }
-                if (analyser) {
-                    analyser.disconnect();
-                }
-                audioContext.close();
-                audioContext = null;
-            }
-        }
-        
-        function setupAudioVisualizer() {
-            audioContext = new (window.AudioContext || window.webkitAudioContext)();
-            analyser = audioContext.createAnalyser();
-            analyser.fftSize = 64;
-            
-            const source = audioContext.createMediaStreamSource(localStream);
-            source.connect(analyser);
-            
-            dataArray = new Uint8Array(analyser.frequencyBinCount);
-            
-            function draw() {
-                animationId = requestAnimationFrame(draw);
-                analyser.getByteFrequencyData(dataArray);
-                
-                // Simples visualização de nível de áudio
-                const level = Math.max(...dataArray) / 255;
-                const bars = Math.floor(level * 10);
-                audioVisualizer.textContent = '🎙️' + '🔊'.repeat(bars);
-            }
-            
-            draw();
-        }
-        
-        async function setupWebRTC(callId, role) {
-            try {
-                // Obter stream de áudio
-                localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                
-                // Configurar visualizador de áudio
-                setupAudioVisualizer();
-                
-                // Configurar PeerConnection
-                const configuration = {
-                    iceServers: [
-                        { urls: 'stun:stun.l.google.com:19302' },
-                        { urls: 'stun:stun1.l.google.com:19302' },
-                        { urls: 'stun:stun2.l.google.com:19302' }
-                        // Adicione servidores TURN aqui se necessário
-                    ]
-                };
-                
-                peerConnection = new RTCPeerConnection(configuration);
-                
-                // Adicionar stream de áudio
-                localStream.getTracks().forEach(track => {
-                    peerConnection.addTrack(track, localStream);
-                });
-                
-                // Configurar recebimento de stream remoto
-                peerConnection.ontrack = (event) => {
-                    const audio = new Audio();
-                    audio.srcObject = event.streams[0];
-                    audio.play();
-                };
-                
-                // Configurar ICE candidates
-                peerConnection.onicecandidate = (event) => {
-                    if (event.candidate) {
-                        database.ref(`calls/${callId}/iceCandidates/${role}`).push({
-                            candidate: event.candidate,
-                            timestamp: firebase.database.ServerValue.TIMESTAMP
-                        });
-                    }
-                };
-                
-                if (role === 'caller') {
-                    const offer = await peerConnection.createOffer();
-                    await peerConnection.setLocalDescription(offer);
-                    
-                    database.ref(`calls/${callId}`).update({
-                        offer: {
-                            type: offer.type,
-                            sdp: offer.sdp
-                        }
-                    });
-                    
-                    database.ref(`calls/${callId}/answer`).on('value', (snapshot) => {
-                        const answer = snapshot.val();
-                        if (answer && peerConnection.signalingState !== 'closed') {
-                            peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
-                        }
-                    });
-                } else if (role === 'callee') {
-                    database.ref(`calls/${callId}/offer`).on('value', async (snapshot) => {
-                        const offer = snapshot.val();
-                        if (offer && peerConnection.signalingState !== 'closed') {
-                            await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
-                            
-                            const answer = await peerConnection.createAnswer();
-                            await peerConnection.setLocalDescription(answer);
-                            
-                            database.ref(`calls/${callId}`).update({
-                                answer: {
-                                    type: answer.type,
-                                    sdp: answer.sdp
-                                }
-                            });
-                        }
-                    });
-                }
-                
-                const iceRef = database.ref(`calls/${callId}/iceCandidates/${
-                    role === 'caller' ? 'callee' : 'caller'
-                }`);
-                
-                iceRef.on('child_added', (snapshot) => {
-                    const candidate = snapshot.val().candidate;
-                    if (candidate && peerConnection.signalingState !== 'closed') {
-                        peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
-                    }
-                });
-                
-                database.ref(`calls/${callId}/status`).on('value', (snapshot) => {
-                    if (snapshot.val() === 'ended') {
-                        endCall();
-                    }
-                });
-                
-            } catch (error) {
-                console.error("Erro WebRTC:", error);
-                endCall();
-                throw error;
-            }
-        }
-        
-        // Gerenciamento de limpeza
-        window.addEventListener('beforeunload', () => {
-            if (userRef) userRef.remove();
-            if (presenceCleanupInterval) clearInterval(presenceCleanupInterval);
-            if (currentCall) endCall();
         });
+    });
+}
+
+// Chamadas de voz
+function setupCallListeners() {
+    callsRef.orderByChild('to').equalTo(currentUser).on('child_added', snapshot => {
+        const callData = snapshot.val();
+        if (callData.status === 'requested' && !currentCall) {
+            showIncomingCall(callData.from, snapshot.key);
+        }
+    });
+}
+
+async function setupWebRTC(callId, role) {
+    try {
+        localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        
+        peerConnection = new RTCPeerConnection({
+            iceServers: [
+                { urls: 'stun:stun.l.google.com:19302' },
+                { urls: 'stun:stun1.l.google.com:19302' }
+            ]
+        });
+
+        localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
+
+        peerConnection.ontrack = event => {
+            const audio = new Audio();
+            audio.srcObject = event.streams[0];
+            audio.play();
+        };
+
+        if (role === 'caller') {
+            const offer = await peerConnection.createOffer();
+            await peerConnection.setLocalDescription(offer);
+            database.ref(`calls/${callId}`).update({ offer });
+        } else {
+            database.ref(`calls/${callId}/offer`).on('value', async snapshot => {
+                const offer = snapshot.val();
+                if (offer) {
+                    await peerConnection.setRemoteDescription(offer);
+                    const answer = await peerConnection.createAnswer();
+                    await peerConnection.setLocalDescription(answer);
+                    database.ref(`calls/${callId}`).update({ answer });
+                }
+            });
+        }
+
+        database.ref(`calls/${callId}/iceCandidates/${role === 'caller' ? 'callee' : 'caller'}`)
+            .on('child_added', snapshot => {
+                const candidate = snapshot.val().candidate;
+                if (candidate) peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+            });
+
+    } catch (error) {
+        console.error("WebRTC error:", error);
+        endCall();
+    }
+}
+
+function endCall() {
+    if (currentCall) {
+        if (peerConnection) peerConnection.close();
+        if (localStream) localStream.getTracks().forEach(track => track.stop());
+        callsRef.child(currentCall.id).update({ status: 'ended' });
+        elements.call.container.style.display = 'none';
+        currentCall = null;
+    }
+}
+
+// Event listeners
+elements.login.btn.addEventListener('click', async () => {
+    if (!validateLogin()) return;
+    elements.login.spinner.style.display = 'inline-block';
+    await new Promise(resolve => setTimeout(resolve, 800));
+    elements.login.container.style.display = 'none';
+    elements.name.container.style.display = 'block';
+    elements.login.spinner.style.display = 'none';
+});
+
+elements.name.btn.addEventListener('click', async () => {
+    if (!validateChatName()) return;
+    elements.name.spinner.style.display = 'inline-block';
+    currentUser = elements.name.username.value.trim();
+    await new Promise(resolve => setTimeout(resolve, 600));
+    elements.name.container.style.display = 'none';
+    elements.chat.container.style.display = 'block';
+    initializeChat();
+    elements.name.spinner.style.display = 'none';
+});
+
+// Inicialização
+window.addEventListener('beforeunload', () => {
+    if (userRef) userRef.remove();
+    if (currentCall) endCall();
+});
     </script>
 </body>
 </html>
