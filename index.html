@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>VilorChat Mega</title>
+    <title>VilorChat Mega - Voz</title>
     <style>
         :root {
             --primary-color: #4a6fa5;
@@ -337,7 +337,7 @@
             to { transform: rotate(360deg); }
         }
         
-        /* Estilos para chamadas */
+        /* Estilos para chamadas de voz */
         .call-container {
             position: fixed;
             top: 0;
@@ -357,32 +357,25 @@
             border-radius: 12px;
             padding: 30px;
             width: 80%;
-            max-width: 800px;
+            max-width: 500px;
             text-align: center;
         }
         
-        .video-container {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 20px;
+        .call-info {
+            font-size: 1.5em;
             margin-bottom: 20px;
+            font-weight: bold;
         }
         
-        .video-box {
-            background: #333;
-            border-radius: 8px;
-            overflow: hidden;
-            position: relative;
-            padding-top: 56.25%; /* 16:9 Aspect Ratio */
+        .call-status {
+            font-style: italic;
+            color: #666;
+            margin: 20px 0;
         }
         
-        .video-box video {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
+        .call-icon {
+            margin-right: 8px;
+            font-size: 1.2em;
         }
         
         .call-buttons {
@@ -400,6 +393,7 @@
             display: flex;
             align-items: center;
             justify-content: center;
+            min-width: 120px;
         }
         
         .accept-call {
@@ -417,67 +411,16 @@
             color: white;
         }
         
-        .call-info {
-            font-size: 1.2em;
-            margin-bottom: 20px;
-            font-weight: bold;
-        }
-        
-        .call-status {
-            font-style: italic;
-            color: #666;
-            margin: 10px 0;
-        }
-        
-        .call-icon {
-            margin-right: 8px;
-        }
-        
-        /* Estilos para seleção de tipo de chamada */
-        .call-type-selector {
-            display: flex;
-            gap: 10px;
-            margin: 15px 0;
-            justify-content: center;
-        }
-        
-        .call-type-btn {
-            padding: 10px 15px;
-            border-radius: 6px;
-            background-color: #e0e0e0;
-            cursor: pointer;
-            font-weight: bold;
-            transition: all 0.3s;
-        }
-        
-        .call-type-btn.selected {
-            background-color: var(--accent-color);
-            color: white;
-        }
-        
-        .call-type-btn:hover {
-            background-color: #d0d0d0;
-        }
-        
-        .call-type-btn.selected:hover {
-            background-color: var(--secondary-color);
-        }
-        
-        /* Estilo para chamada apenas de voz */
-        .audio-only .video-box {
+        .audio-visualizer {
+            width: 100%;
+            height: 100px;
+            margin: 20px 0;
+            background-color: #f0f0f0;
+            border-radius: 8px;
             display: flex;
             align-items: center;
             justify-content: center;
-            background: #f0f0f0;
-        }
-        
-        .audio-only .video-box::before {
-            content: "🎤";
-            font-size: 3em;
-        }
-        
-        .audio-only video {
-            display: none;
+            font-size: 2em;
         }
     </style>
 </head>
@@ -485,7 +428,7 @@
     <!-- Tela de Login -->
     <div id="login-container">
         <h1>Bem-vindo ao VilorChat Mega</h1>
-        <p>Converse e faça chamadas com milhares de usuários em tempo real!</p>
+        <p>Converse e faça chamadas de voz com outros usuários em tempo real!</p>
         
         <div class="form-section">
             <label for="login-username">Login</label>
@@ -554,29 +497,14 @@
         </div>
     </div>
 
-    <!-- Tela de Chamada -->
+    <!-- Tela de Chamada de Voz -->
     <div class="call-container" id="call-container">
         <div class="call-box">
             <div class="call-info" id="call-info">Chamando...</div>
             <div class="call-status" id="call-status">Conectando...</div>
             
-            <div class="video-container" id="video-container">
-                <div class="video-box">
-                    <video id="local-video" autoplay muted></video>
-                </div>
-                <div class="video-box">
-                    <video id="remote-video" autoplay></video>
-                </div>
-            </div>
-            
-            <!-- Seletor de tipo de chamada -->
-            <div class="call-type-selector" id="call-type-selector">
-                <div class="call-type-btn selected" data-type="video">
-                    <span class="call-icon">🎥</span> Vídeo
-                </div>
-                <div class="call-type-btn" data-type="audio">
-                    <span class="call-icon">🎙️</span> Voz
-                </div>
+            <div class="audio-visualizer" id="audio-visualizer">
+                🎙️
             </div>
             
             <div class="call-buttons" id="call-buttons">
@@ -633,17 +561,13 @@
         const passwordError = document.getElementById('password-error');
         const nameError = document.getElementById('name-error');
         
-        // Elementos de chamada
+        // Elementos de chamada de voz
         const callContainer = document.getElementById('call-container');
         const callInfo = document.getElementById('call-info');
         const callStatus = document.getElementById('call-status');
-        const videoContainer = document.getElementById('video-container');
         const callButtons = document.getElementById('call-buttons');
-        const localVideo = document.getElementById('local-video');
-        const remoteVideo = document.getElementById('remote-video');
         const endCallButton = document.getElementById('end-call-button');
-        const callTypeSelector = document.getElementById('call-type-selector');
-        const callTypeBtns = document.querySelectorAll('.call-type-btn');
+        const audioVisualizer = document.getElementById('audio-visualizer');
 
         // Credenciais fixas
         const FIXED_LOGIN = "VilorCreated";
@@ -668,30 +592,18 @@
         let messageCount = 0;
         const MAX_MESSAGES = 10000;
         
-        // Variáveis de WebRTC
+        // Variáveis de WebRTC (somente áudio)
         let peerConnection;
         let localStream;
         let currentCall = null;
         let callRequestRef = null;
         let callAnswerRef = null;
         let iceCandidatesRef = null;
-        let callType = 'video'; // Padrão para chamada de vídeo
-
-        // Configurar seleção de tipo de chamada
-        callTypeBtns.forEach(btn => {
-            btn.addEventListener('click', () => {
-                callTypeBtns.forEach(b => b.classList.remove('selected'));
-                btn.classList.add('selected');
-                callType = btn.dataset.type;
-                
-                // Atualizar interface conforme o tipo selecionado
-                if (callType === 'audio') {
-                    videoContainer.classList.add('audio-only');
-                } else {
-                    videoContainer.classList.remove('audio-only');
-                }
-            });
-        });
+        let audioContext;
+        let analyser;
+        let microphone;
+        let dataArray;
+        let animationId;
 
         // Mostrar notificação
         function showNotification(message, duration = 3000) {
@@ -1165,7 +1077,7 @@
             messagesContainer.scrollTop = messagesContainer.scrollHeight;
         }
         
-        // Sistema de Chamadas
+        // Sistema de Chamadas de Voz
         function setupCallMonitoring() {
             callsRef.orderByChild('to').equalTo(currentUser).on('child_added', (snapshot) => {
                 const callData = snapshot.val();
@@ -1179,13 +1091,6 @@
         function showIncomingCall(from, callId) {
             callInfo.textContent = `Chamada de ${from}`;
             callStatus.textContent = "Chamando...";
-            
-            // Resetar tipo para vídeo quando receber chamada
-            callType = 'video';
-            callTypeBtns.forEach(btn => {
-                btn.classList.toggle('selected', btn.dataset.type === callType);
-            });
-            videoContainer.classList.remove('audio-only');
             
             callButtons.innerHTML = '';
             
@@ -1224,13 +1129,12 @@
             }
             
             const callId = callsRef.push().key;
-            currentCall = { id: callId, to: toUser, type: 'outgoing', callType: callType };
+            currentCall = { id: callId, to: toUser, type: 'outgoing' };
             
             callsRef.child(callId).set({
                 from: currentUser,
                 to: toUser,
                 status: 'requested',
-                callType: callType,
                 timestamp: firebase.database.ServerValue.TIMESTAMP
             });
             
@@ -1252,7 +1156,7 @@
                 
                 if (callData.status === 'answered') {
                     callStatus.textContent = "Chamada em andamento...";
-                    setupWebRTC(callId, 'caller', callData.callType);
+                    setupWebRTC(callId, 'caller');
                 } else if (callData.status === 'rejected') {
                     endCall();
                     showNotification(`${toUser} recusou sua chamada`);
@@ -1272,18 +1176,7 @@
         
         async function answerCall(callId, from) {
             try {
-                // Obter o tipo de chamada (vídeo/áudio)
-                const callData = (await callsRef.child(callId).once('value')).val();
-                const callType = callData.callType || 'video';
-                
-                // Atualizar interface conforme o tipo de chamada
-                if (callType === 'audio') {
-                    videoContainer.classList.add('audio-only');
-                } else {
-                    videoContainer.classList.remove('audio-only');
-                }
-                
-                await setupWebRTC(callId, 'callee', callType);
+                await setupWebRTC(callId, 'callee');
                 
                 callsRef.child(callId).update({
                     status: 'answered',
@@ -1304,8 +1197,7 @@
                     id: callId, 
                     from: from, 
                     type: 'incoming', 
-                    answered: true,
-                    callType: callType
+                    answered: true
                 };
             } catch (error) {
                 console.error("Erro ao atender chamada:", error);
@@ -1331,53 +1223,93 @@
                     });
                 }
                 
-                if (localStream) {
-                    localStream.getTracks().forEach(track => track.stop());
-                    localStream = null;
-                }
+                // Parar todos os streams e conexões
+                stopAudioStream();
                 
                 if (peerConnection) {
                     peerConnection.close();
                     peerConnection = null;
                 }
                 
-                localVideo.srcObject = null;
-                remoteVideo.srcObject = null;
-                
                 callContainer.style.display = 'none';
                 currentCall = null;
             }
         }
         
-        async function setupWebRTC(callId, role, mediaType) {
-            try {
-                // Obter stream de mídia local conforme o tipo selecionado
-                const constraints = {
-                    audio: true,
-                    video: mediaType === 'video' ? true : false
-                };
+        function stopAudioStream() {
+            if (localStream) {
+                localStream.getTracks().forEach(track => track.stop());
+                localStream = null;
+            }
+            
+            if (audioContext) {
+                if (animationId) {
+                    cancelAnimationFrame(animationId);
+                }
+                if (microphone) {
+                    microphone.disconnect();
+                }
+                if (analyser) {
+                    analyser.disconnect();
+                }
+                audioContext.close();
+                audioContext = null;
+            }
+        }
+        
+        function setupAudioVisualizer() {
+            audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            analyser = audioContext.createAnalyser();
+            analyser.fftSize = 64;
+            
+            const source = audioContext.createMediaStreamSource(localStream);
+            source.connect(analyser);
+            
+            dataArray = new Uint8Array(analyser.frequencyBinCount);
+            
+            function draw() {
+                animationId = requestAnimationFrame(draw);
+                analyser.getByteFrequencyData(dataArray);
                 
-                localStream = await navigator.mediaDevices.getUserMedia(constraints);
-                localVideo.srcObject = localStream;
+                // Simples visualização de nível de áudio
+                const level = Math.max(...dataArray) / 255;
+                const bars = Math.floor(level * 10);
+                audioVisualizer.textContent = '🎙️' + '🔊'.repeat(bars);
+            }
+            
+            draw();
+        }
+        
+        async function setupWebRTC(callId, role) {
+            try {
+                // Obter stream de áudio
+                localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                
+                // Configurar visualizador de áudio
+                setupAudioVisualizer();
                 
                 // Configurar PeerConnection
                 const configuration = {
                     iceServers: [
                         { urls: 'stun:stun.l.google.com:19302' },
+                        { urls: 'stun:stun1.l.google.com:19302' },
+                        { urls: 'stun:stun2.l.google.com:19302' }
                         // Adicione servidores TURN aqui se necessário
                     ]
                 };
                 
                 peerConnection = new RTCPeerConnection(configuration);
                 
-                // Adicionar stream local
+                // Adicionar stream de áudio
                 localStream.getTracks().forEach(track => {
                     peerConnection.addTrack(track, localStream);
                 });
                 
                 // Configurar recebimento de stream remoto
                 peerConnection.ontrack = (event) => {
-                    remoteVideo.srcObject = event.streams[0];
+                    const audio = new Audio();
+                    audio.srcObject = event.streams[0];
+                    audio.play();
                 };
                 
                 // Configurar ICE candidates
