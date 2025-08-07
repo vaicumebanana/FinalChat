@@ -432,6 +432,53 @@
         .call-icon {
             margin-right: 8px;
         }
+        
+        /* Estilos para seleção de tipo de chamada */
+        .call-type-selector {
+            display: flex;
+            gap: 10px;
+            margin: 15px 0;
+            justify-content: center;
+        }
+        
+        .call-type-btn {
+            padding: 10px 15px;
+            border-radius: 6px;
+            background-color: #e0e0e0;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s;
+        }
+        
+        .call-type-btn.selected {
+            background-color: var(--accent-color);
+            color: white;
+        }
+        
+        .call-type-btn:hover {
+            background-color: #d0d0d0;
+        }
+        
+        .call-type-btn.selected:hover {
+            background-color: var(--secondary-color);
+        }
+        
+        /* Estilo para chamada apenas de voz */
+        .audio-only .video-box {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #f0f0f0;
+        }
+        
+        .audio-only .video-box::before {
+            content: "🎤";
+            font-size: 3em;
+        }
+        
+        .audio-only video {
+            display: none;
+        }
     </style>
 </head>
 <body>
@@ -522,6 +569,16 @@
                 </div>
             </div>
             
+            <!-- Seletor de tipo de chamada -->
+            <div class="call-type-selector" id="call-type-selector">
+                <div class="call-type-btn selected" data-type="video">
+                    <span class="call-icon">🎥</span> Vídeo
+                </div>
+                <div class="call-type-btn" data-type="audio">
+                    <span class="call-icon">🎙️</span> Voz
+                </div>
+            </div>
+            
             <div class="call-buttons" id="call-buttons">
                 <button class="call-button end-call" id="end-call-button">
                     <span class="call-icon">✖</span> Encerrar
@@ -585,6 +642,8 @@
         const localVideo = document.getElementById('local-video');
         const remoteVideo = document.getElementById('remote-video');
         const endCallButton = document.getElementById('end-call-button');
+        const callTypeSelector = document.getElementById('call-type-selector');
+        const callTypeBtns = document.querySelectorAll('.call-type-btn');
 
         // Credenciais fixas
         const FIXED_LOGIN = "VilorCreated";
@@ -616,6 +675,23 @@
         let callRequestRef = null;
         let callAnswerRef = null;
         let iceCandidatesRef = null;
+        let callType = 'video'; // Padrão para chamada de vídeo
+
+        // Configurar seleção de tipo de chamada
+        callTypeBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                callTypeBtns.forEach(b => b.classList.remove('selected'));
+                btn.classList.add('selected');
+                callType = btn.dataset.type;
+                
+                // Atualizar interface conforme o tipo selecionado
+                if (callType === 'audio') {
+                    videoContainer.classList.add('audio-only');
+                } else {
+                    videoContainer.classList.remove('audio-only');
+                }
+            });
+        });
 
         // Mostrar notificação
         function showNotification(message, duration = 3000) {
@@ -677,7 +753,6 @@
             loginText.textContent = "Verificando...";
             loginBtn.disabled = true;
             
-            // Simular verificação (remova em produção real)
             await new Promise(resolve => setTimeout(resolve, 800));
             
             loginContainer.style.display = 'none';
@@ -699,7 +774,6 @@
             
             currentUser = chatUsername.value.trim();
             
-            // Simular conexão inicial (remova em produção real)
             await new Promise(resolve => setTimeout(resolve, 600));
             
             nameContainer.style.display = 'none';
@@ -741,7 +815,7 @@
                     userRef.onDisconnect().remove();
                     
                     // Limpeza periódica de usuários offline
-                    presenceCleanupInterval = setInterval(cleanupOfflineUsers, 300000); // 5 minutos
+                    presenceCleanupInterval = setInterval(cleanupOfflineUsers, 300000);
                     
                     // Iniciar monitoramento de chamadas
                     setupCallMonitoring();
@@ -766,10 +840,7 @@
                     }
                 });
                 
-                // Atualizar contagem
                 onlineCountSpan.textContent = Object.keys(onlineUsers).length.toLocaleString();
-                
-                // Atualizar lista de usuários
                 updateUserList();
             });
             
@@ -827,7 +898,7 @@
         function cleanupOfflineUsers() {
             if (!isConnected) return;
             
-            const cutoff = Date.now() - 300000; // 5 minutos atrás
+            const cutoff = Date.now() - 300000;
             
             presenceRef.orderByChild('timestamp').endAt(cutoff).once('value', (snapshot) => {
                 const updates = {};
@@ -854,7 +925,6 @@
         function checkMessageLimit() {
             messageCount++;
             if (messageCount >= MAX_MESSAGES) {
-                // Resetar mensagens quando atingir o limite
                 database.ref('messages').set({ public: {}, private: {} })
                     .then(() => {
                         showNotification("O chat foi renovado automaticamente!");
@@ -867,7 +937,6 @@
         }
         
         function setupPrivateChatListeners() {
-            // Ouvinte para mensagens privadas
             database.ref('messages/private').on('child_added', (snapshot) => {
                 const conversationId = snapshot.key;
                 const messagesRef = database.ref(`messages/private/${conversationId}`);
@@ -875,7 +944,6 @@
                 messagesRef.on('child_added', (messageSnapshot) => {
                     const message = messageSnapshot.val();
                     
-                    // Verificar se a mensagem é para o usuário atual
                     if (message.to === currentUser || message.from === currentUser) {
                         const otherUser = message.from === currentUser ? message.to : message.from;
                         
@@ -953,7 +1021,6 @@
                 fragment.appendChild(userElement);
             });
             
-            // Adicionar item do usuário atual no topo
             const currentUserElement = document.createElement('div');
             currentUserElement.className = 'user-item current-user';
             currentUserElement.textContent = `${currentUser} (você)`;
@@ -1100,7 +1167,6 @@
         
         // Sistema de Chamadas
         function setupCallMonitoring() {
-            // Monitorar chamadas recebidas
             callsRef.orderByChild('to').equalTo(currentUser).on('child_added', (snapshot) => {
                 const callData = snapshot.val();
                 
@@ -1114,10 +1180,15 @@
             callInfo.textContent = `Chamada de ${from}`;
             callStatus.textContent = "Chamando...";
             
-            // Limpar botões anteriores
+            // Resetar tipo para vídeo quando receber chamada
+            callType = 'video';
+            callTypeBtns.forEach(btn => {
+                btn.classList.toggle('selected', btn.dataset.type === callType);
+            });
+            videoContainer.classList.remove('audio-only');
+            
             callButtons.innerHTML = '';
             
-            // Adicionar botões de aceitar/rejeitar
             const acceptButton = document.createElement('button');
             acceptButton.className = 'call-button accept-call';
             acceptButton.innerHTML = '<span class="call-icon">✓</span> Atender';
@@ -1135,17 +1206,15 @@
             callButtons.appendChild(acceptButton);
             callButtons.appendChild(rejectButton);
             
-            // Mostrar container de chamada
             callContainer.style.display = 'flex';
             currentCall = { id: callId, from: from, type: 'incoming' };
             
-            // Configurar timeout para chamada não atendida
             setTimeout(() => {
                 if (currentCall && currentCall.id === callId) {
                     rejectCall(callId);
                     showNotification(`${from} não atendeu sua chamada`);
                 }
-            }, 45000); // 45 segundos para atender
+            }, 45000);
         }
         
         function startCall(toUser) {
@@ -1155,17 +1224,16 @@
             }
             
             const callId = callsRef.push().key;
-            currentCall = { id: callId, to: toUser, type: 'outgoing' };
+            currentCall = { id: callId, to: toUser, type: 'outgoing', callType: callType };
             
-            // Criar oferta de chamada
             callsRef.child(callId).set({
                 from: currentUser,
                 to: toUser,
                 status: 'requested',
+                callType: callType,
                 timestamp: firebase.database.ServerValue.TIMESTAMP
             });
             
-            // Mostrar interface de chamada
             callInfo.textContent = `Chamando ${toUser}...`;
             callStatus.textContent = "Aguardando resposta...";
             callButtons.innerHTML = '';
@@ -1178,40 +1246,45 @@
             
             callContainer.style.display = 'flex';
             
-            // Monitorar resposta
             callsRef.child(callId).on('value', (snapshot) => {
                 const callData = snapshot.val();
                 if (!callData) return;
                 
                 if (callData.status === 'answered') {
-                    // Chamada atendida, iniciar conexão WebRTC
                     callStatus.textContent = "Chamada em andamento...";
-                    setupWebRTC(callId, 'caller');
+                    setupWebRTC(callId, 'caller', callData.callType);
                 } else if (callData.status === 'rejected') {
-                    // Chamada rejeitada
                     endCall();
                     showNotification(`${toUser} recusou sua chamada`);
                 } else if (callData.status === 'ended') {
-                    // Chamada encerrada
                     endCall();
                     showNotification(`Chamada com ${toUser} encerrada`);
                 }
             });
             
-            // Timeout se não responder
             setTimeout(() => {
                 if (currentCall && currentCall.id === callId) {
                     endCall();
                     showNotification(`${toUser} não está respondendo`);
                 }
-            }, 45000); // 45 segundos
+            }, 45000);
         }
         
         async function answerCall(callId, from) {
             try {
-                await setupWebRTC(callId, 'callee');
+                // Obter o tipo de chamada (vídeo/áudio)
+                const callData = (await callsRef.child(callId).once('value')).val();
+                const callType = callData.callType || 'video';
                 
-                // Atualizar status da chamada para atendida
+                // Atualizar interface conforme o tipo de chamada
+                if (callType === 'audio') {
+                    videoContainer.classList.add('audio-only');
+                } else {
+                    videoContainer.classList.remove('audio-only');
+                }
+                
+                await setupWebRTC(callId, 'callee', callType);
+                
                 callsRef.child(callId).update({
                     status: 'answered',
                     answeredAt: firebase.database.ServerValue.TIMESTAMP
@@ -1220,7 +1293,6 @@
                 callInfo.textContent = `Em chamada com ${from}`;
                 callStatus.textContent = "Chamada em andamento...";
                 
-                // Configurar botão de encerrar
                 callButtons.innerHTML = '';
                 const endButton = document.createElement('button');
                 endButton.className = 'call-button end-call';
@@ -1228,7 +1300,13 @@
                 endButton.addEventListener('click', endCall);
                 callButtons.appendChild(endButton);
                 
-                currentCall = { id: callId, from: from, type: 'incoming', answered: true };
+                currentCall = { 
+                    id: callId, 
+                    from: from, 
+                    type: 'incoming', 
+                    answered: true,
+                    callType: callType
+                };
             } catch (error) {
                 console.error("Erro ao atender chamada:", error);
                 endCall();
@@ -1246,7 +1324,6 @@
         
         function endCall() {
             if (currentCall) {
-                // Atualizar status da chamada
                 if (currentCall.id) {
                     callsRef.child(currentCall.id).update({
                         status: 'ended',
@@ -1254,7 +1331,6 @@
                     });
                 }
                 
-                // Encerrar streams
                 if (localStream) {
                     localStream.getTracks().forEach(track => track.stop());
                     localStream = null;
@@ -1265,30 +1341,30 @@
                     peerConnection = null;
                 }
                 
-                // Limpar elementos de vídeo
                 localVideo.srcObject = null;
                 remoteVideo.srcObject = null;
                 
-                // Esconder container de chamada
                 callContainer.style.display = 'none';
                 currentCall = null;
             }
         }
         
-        async function setupWebRTC(callId, role) {
+        async function setupWebRTC(callId, role, mediaType) {
             try {
-                // Obter stream de mídia local
-                localStream = await navigator.mediaDevices.getUserMedia({
-                    video: true,
-                    audio: true
-                });
+                // Obter stream de mídia local conforme o tipo selecionado
+                const constraints = {
+                    audio: true,
+                    video: mediaType === 'video' ? true : false
+                };
+                
+                localStream = await navigator.mediaDevices.getUserMedia(constraints);
                 localVideo.srcObject = localStream;
                 
                 // Configurar PeerConnection
                 const configuration = {
                     iceServers: [
                         { urls: 'stun:stun.l.google.com:19302' },
-                        // Adicione seus próprios servidores TURN/STUN aqui se necessário
+                        // Adicione servidores TURN aqui se necessário
                     ]
                 };
                 
@@ -1314,7 +1390,6 @@
                     }
                 };
                 
-                // Para o caller, criar oferta
                 if (role === 'caller') {
                     const offer = await peerConnection.createOffer();
                     await peerConnection.setLocalDescription(offer);
@@ -1326,16 +1401,13 @@
                         }
                     });
                     
-                    // Monitorar resposta
                     database.ref(`calls/${callId}/answer`).on('value', (snapshot) => {
                         const answer = snapshot.val();
                         if (answer && peerConnection.signalingState !== 'closed') {
                             peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
                         }
                     });
-                } 
-                // Para o callee, esperar oferta
-                else if (role === 'callee') {
+                } else if (role === 'callee') {
                     database.ref(`calls/${callId}/offer`).on('value', async (snapshot) => {
                         const offer = snapshot.val();
                         if (offer && peerConnection.signalingState !== 'closed') {
@@ -1354,7 +1426,6 @@
                     });
                 }
                 
-                // Monitorar ICE candidates do outro participante
                 const iceRef = database.ref(`calls/${callId}/iceCandidates/${
                     role === 'caller' ? 'callee' : 'caller'
                 }`);
@@ -1366,7 +1437,6 @@
                     }
                 });
                 
-                // Monitorar encerramento de chamada
                 database.ref(`calls/${callId}/status`).on('value', (snapshot) => {
                     if (snapshot.val() === 'ended') {
                         endCall();
