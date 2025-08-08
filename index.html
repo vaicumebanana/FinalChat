@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>VilorChat Mega - Chat Público e Privado</title>
+    <title>VilorChat Mega - Chat e Chamadas</title>
     <style>
         :root {
             --primary: #4a6fa5;
@@ -112,17 +112,10 @@
             right: 0;
             bottom: 0;
             background: rgba(0,0,0,0.8);
-            display: flex;
+            display: none;
             justify-content: center;
             align-items: center;
             z-index: 1000;
-            opacity: 0;
-            pointer-events: none;
-            transition: opacity 0.3s;
-        }
-        .call-container.active {
-            opacity: 1;
-            pointer-events: all;
         }
         .call-box {
             background: white;
@@ -227,7 +220,7 @@
         let userRef, presenceRef, messagesRef, privateMessagesRef, callsRef;
         let peerConnection, localStream, currentCall;
         let onlineUsers = {};
-        let currentChat = 'public'; // 'public' ou userId privado
+        let currentChat = 'public';
         let privateChatWith = null;
 
         // ================= ELEMENTOS DA INTERFACE =================
@@ -277,13 +270,11 @@
 
         // ================= SISTEMA DE CHAT =================
         function initializeChat() {
-            // Referências Firebase
             presenceRef = database.ref('presence');
             messagesRef = database.ref('messages/public');
             privateMessagesRef = database.ref('messages/private');
             callsRef = database.ref('calls');
 
-            // Registrar usuário online
             userRef = presenceRef.push();
             userRef.set({
                 user: currentUser,
@@ -292,7 +283,6 @@
             });
             userRef.onDisconnect().remove();
 
-            // Monitorar usuários online
             presenceRef.orderByChild('online').equalTo(true).on('value', (snapshot) => {
                 onlineUsers = {};
                 snapshot.forEach(child => {
@@ -303,10 +293,8 @@
                 updateUserList();
             });
 
-            // Carregar mensagens públicas
             loadPublicMessages();
 
-            // Enviar mensagem
             document.getElementById('send-btn').addEventListener('click', sendMessage);
             elements.msgInput.addEventListener('keypress', e => {
                 if (e.key === 'Enter' && !e.shiftKey) {
@@ -315,7 +303,6 @@
                 }
             });
 
-            // Botão voltar ao chat público
             elements.backToPublic.addEventListener('click', () => {
                 currentChat = 'public';
                 privateChatWith = null;
@@ -326,9 +313,7 @@
         }
 
         function loadPublicMessages() {
-            // Limpar listeners anteriores
             messagesRef.off();
-            
             elements.msgContainer.innerHTML = '';
             messagesRef.limitToLast(50).on('child_added', (snapshot) => {
                 displayMessage(snapshot.val(), 'public');
@@ -340,14 +325,10 @@
             privateChatWith = withUser;
             elements.chatTitle.textContent = `Chat com ${withUser}`;
             elements.backToPublic.style.display = 'block';
-            
-            // Limpar mensagens atuais
             elements.msgContainer.innerHTML = '';
             
-            // Carregar mensagens privadas
             privateMessagesRef.off();
             
-            // Carregar minhas mensagens para o usuário
             privateMessagesRef
                 .orderByChild('fromTo')
                 .equalTo(`${currentUser}_${withUser}`)
@@ -355,7 +336,6 @@
                     displayMessage(snapshot.val(), 'private');
                 });
             
-            // Carregar mensagens do usuário para mim
             privateMessagesRef
                 .orderByChild('fromTo')
                 .equalTo(`${withUser}_${currentUser}`)
@@ -416,14 +396,12 @@
             if (!text) return;
             
             if (currentChat === 'public') {
-                // Mensagem pública
                 messagesRef.push({
                     user: currentUser,
                     text: text,
                     timestamp: firebase.database.ServerValue.TIMESTAMP
                 });
             } else {
-                // Mensagem privada
                 privateMessagesRef.push({
                     user: currentUser,
                     text: text,
@@ -457,7 +435,6 @@
 
         async function startCall(toUser) {
             try {
-                // Configurações de áudio com redução de ruído
                 localStream = await navigator.mediaDevices.getUserMedia({ 
                     audio: {
                         echoCancellation: true,
@@ -472,7 +449,6 @@
                     peerConnection.addTrack(track, localStream);
                 });
 
-                // Configurar chamada no Firebase
                 const callId = callsRef.push().key;
                 currentCall = { id: callId, to: toUser };
                 callsRef.child(callId).set({
@@ -482,14 +458,12 @@
                     timestamp: firebase.database.ServerValue.TIMESTAMP
                 });
 
-                // Mostrar tela de chamada
                 elements.callInfo.textContent = `Chamando ${toUser}...`;
-                elements.callButtons.innerHTML = '<button class="end-call">Cancelar</button>';
-                elements.callContainer.classList.add('active');
+                elements.callButtons.innerHTML = '<button id="end-call-btn" class="end-call">Cancelar</button>';
+                elements.callContainer.style.display = 'flex';
                 
-                document.querySelector('.end-call').addEventListener('click', endCall);
+                document.getElementById('end-call-btn').addEventListener('click', endCall);
 
-                // Monitorar resposta
                 callsRef.child(callId).on('value', (snapshot) => {
                     const callData = snapshot.val();
                     if (!callData) return;
@@ -499,9 +473,6 @@
                         setupWebRTC(callId, 'caller');
                     } else if (callData.status === 'rejected') {
                         showNotification(`${toUser} recusou a chamada`);
-                        endCall();
-                    } else if (callData.status === 'ended') {
-                        showNotification(`${toUser} encerrou a chamada`);
                         endCall();
                     }
                 });
@@ -545,7 +516,7 @@
             }
             if (peerConnection) peerConnection.close();
             if (localStream) localStream.getTracks().forEach(track => track.stop());
-            elements.callContainer.classList.remove('active');
+            elements.callContainer.style.display = 'none';
             currentCall = null;
         }
 
