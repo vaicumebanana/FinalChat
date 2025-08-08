@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>VilorChat Voz</title>
+    <title>VilorChat Mega - Firebase</title>
     <style>
         :root {
             --primary: #4a6fa5;
@@ -117,20 +117,22 @@
     </style>
 </head>
 <body>
-    <!-- Interface mantida igual -->
+    <!-- Tela de Login -->
     <div id="login-container">
-        <h1>VilorChat Voz</h1>
+        <h1>VilorChat Mega</h1>
         <input type="text" id="login-username" placeholder="Login" value="VilorCreated">
         <input type="password" id="login-password" placeholder="Senha" value="This">
         <button id="login-btn">Entrar</button>
     </div>
 
+    <!-- Tela de Nome -->
     <div id="name-container" style="display:none">
         <h2>Escolha seu nome</h2>
         <input type="text" id="chat-username" placeholder="Seu nome">
         <button id="confirm-name-btn">Entrar no Chat</button>
     </div>
 
+    <!-- Tela do Chat -->
     <div id="chat-container" style="display:none">
         <div class="chat-layout">
             <div class="user-panel">
@@ -145,6 +147,7 @@
         </div>
     </div>
 
+    <!-- Tela de Chamada -->
     <div class="call-container" id="call-container">
         <div class="call-box">
             <div id="call-info">Chamando...</div>
@@ -155,21 +158,28 @@
 
     <div class="notification" id="notification"></div>
 
+    <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+
     <script>
-        // Configuração do Firebase
-        firebase.initializeApp({ 
-            databaseURL: "https://vilorchatmessage-default-rtdb.firebaseio.com/" 
-        });
-        const db = firebase.database();
+        // ================= CONFIGURAÇÃO FIREBASE =================
+        const firebaseConfig = {
+            databaseURL: "https://vilorchatmessage-default-rtdb.firebaseio.com/"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
 
-        // Variáveis globais
+        // ================= VARIÁVEIS GLOBAIS =================
+        const FIXED_LOGIN = "VilorCreated";
+        const FIXED_PASSWORD = "This";
+        
         let currentUser = "";
+        let userRef, presenceRef, messagesRef, callsRef;
         let peerConnection, localStream, currentCall;
-        let callAnswerRef, callRequestRef, iceCandidatesRef;
+        let onlineUsers = {};
 
-        // Elementos
+        // ================= ELEMENTOS DA INTERFACE =================
         const elements = {
             login: document.getElementById('login-container'),
             name: document.getElementById('name-container'),
@@ -185,66 +195,63 @@
             notification: document.getElementById('notification')
         };
 
-        // Funções básicas
+        // ================= FUNÇÕES BÁSICAS =================
         function showNotification(msg, duration=3000) {
             elements.notification.textContent = msg;
             elements.notification.style.display = 'block';
             setTimeout(() => elements.notification.style.display = 'none', duration);
         }
 
-        // Login
+        // ================= SISTEMA DE LOGIN =================
         document.getElementById('login-btn').addEventListener('click', () => {
-            if (document.getElementById('login-username').value !== "VilorCreated" || 
-                document.getElementById('login-password').value !== "This") {
+            if (document.getElementById('login-username').value !== FIXED_LOGIN || 
+                document.getElementById('login-password').value !== FIXED_PASSWORD) {
                 return showNotification("Credenciais inválidas");
             }
             elements.login.style.display = 'none';
             elements.name.style.display = 'block';
         });
 
-        // Nome
+        // ================= SISTEMA DE NOME =================
         document.getElementById('confirm-name-btn').addEventListener('click', () => {
             currentUser = document.getElementById('chat-username').value.trim();
             if (currentUser.length < 2) return showNotification("Nome muito curto");
             elements.name.style.display = 'none';
             elements.chat.style.display = 'block';
             initializeChat();
+            showNotification(`Bem-vindo, ${currentUser}!`);
         });
 
-        // Chat
+        // ================= SISTEMA DE CHAT =================
         function initializeChat() {
-            // Firebase refs
-            const messagesRef = db.ref('messages/public');
-            const presenceRef = db.ref('presence');
-            const callsRef = db.ref('calls');
+            // Referências Firebase
+            presenceRef = database.ref('presence');
+            messagesRef = database.ref('messages/public');
+            callsRef = database.ref('calls');
 
-            // Status de conexão
-            db.ref('.info/connected').on('value', snap => {
-                if (snap.val()) {
-                    const userRef = presenceRef.push();
-                    userRef.set({ 
-                        user: currentUser, 
-                        online: true,
-                        timestamp: firebase.database.ServerValue.TIMESTAMP
-                    });
-                    userRef.onDisconnect().remove();
-                }
+            // Registrar usuário online
+            userRef = presenceRef.push();
+            userRef.set({
+                user: currentUser,
+                online: true,
+                timestamp: firebase.database.ServerValue.TIMESTAMP
             });
+            userRef.onDisconnect().remove();
 
-            // Usuários online
-            presenceRef.orderByChild('online').equalTo(true).on('value', snap => {
-                const users = {};
-                snap.forEach(child => {
+            // Monitorar usuários online
+            presenceRef.orderByChild('online').equalTo(true).on('value', (snapshot) => {
+                onlineUsers = {};
+                snapshot.forEach(child => {
                     const userData = child.val();
-                    if (userData.online) users[userData.user] = true;
+                    if (userData.online) onlineUsers[userData.user] = true;
                 });
-                elements.onlineCount.textContent = Object.keys(users).length;
-                updateUserList(users);
+                elements.onlineCount.textContent = Object.keys(onlineUsers).length;
+                updateUserList();
             });
 
-            // Mensagens
-            messagesRef.limitToLast(50).on('child_added', snap => {
-                displayMessage(snap.val());
+            // Carregar mensagens
+            messagesRef.limitToLast(50).on('child_added', (snapshot) => {
+                displayMessage(snapshot.val());
             });
 
             // Enviar mensagem
@@ -255,27 +262,17 @@
                     sendMessage();
                 }
             });
-
-            // Monitorar chamadas
-            callsRef.orderByChild('to').equalTo(currentUser).on('child_added', snap => {
-                const call = snap.val();
-                if (call.status === 'requested' && !currentCall) {
-                    showIncomingCall(call.from, snap.key);
-                }
-            });
         }
 
-        function updateUserList(users) {
+        function updateUserList() {
             elements.userList.innerHTML = '';
-            Object.keys(users).forEach(user => {
+            Object.keys(onlineUsers).forEach(user => {
                 if (user === currentUser) return;
+                
                 const userEl = document.createElement('div');
                 userEl.className = 'user-item';
                 userEl.innerHTML = `${user} <button class="call-btn">Chamar</button>`;
-                userEl.querySelector('.call-btn').addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    startCall(user);
-                });
+                userEl.querySelector('.call-btn').addEventListener('click', () => startCall(user));
                 elements.userList.appendChild(userEl);
             });
         }
@@ -291,236 +288,149 @@
         function sendMessage() {
             const text = elements.msgInput.value.trim();
             if (!text) return;
-            db.ref('messages/public').push({
+            
+            messagesRef.push({
                 user: currentUser,
                 text: text,
                 timestamp: firebase.database.ServerValue.TIMESTAMP
             });
+            
             elements.msgInput.value = '';
         }
 
-        // Sistema de Chamadas (Corrigido)
+        // ================= SISTEMA DE CHAMADAS =================
+        const ICE_SERVERS = {
+            iceServers: [
+                // STUN Servers (conexão direta)
+                { urls: "stun:stun.l.google.com:19302" },
+                { urls: "stun:stun1.l.google.com:19302" },
+                { urls: "stun:stun2.l.google.com:19302" },
+                { urls: "stun:stun3.l.google.com:19302" },
+                { urls: "stun:stun4.l.google.com:19302" },
+                
+                // TURN Servers (com suas credenciais)
+                { 
+                    urls: "turn:numb.viagenie.ca:3478",
+                    username: "vaicumebanana@gmail.com",
+                    credential: "vaicumebanana"
+                },
+                { 
+                    urls: "turn:openrelay.metered.ca:80",
+                    username: "vaicumebanana@gmail.com",
+                    credential: "vaicumebanana"
+                },
+                { 
+                    urls: "turn:relay.metered.ca:443",
+                    username: "vaicumebanana@gmail.com",
+                    credential: "vaicumebanana"
+                },
+                { 
+                    urls: "turn:turn.anyfirewall.com:443?transport=tcp",
+                    username: "vaicumebanana@gmail.com",
+                    credential: "vaicumebanana"
+                },
+                { 
+                    urls: "turn:global.turn.twilio.com:3478?transport=udp",
+                    username: "vaicumebanana@gmail.com", // (Substitua por credenciais Twilio reais se tiver)
+                    credential: "vaicumebanana"
+                }
+            ]
+        };
+
         async function startCall(toUser) {
-            if (currentCall) return showNotification("Você já está em uma chamada");
-            
-            const callId = db.ref('calls').push().key;
-            currentCall = { id: callId, to: toUser, type: 'outgoing' };
-            
-            await db.ref(`calls/${callId}`).set({
-                from: currentUser,
-                to: toUser,
-                status: 'requested',
-                timestamp: firebase.database.ServerValue.TIMESTAMP
-            });
-
-            elements.callInfo.textContent = `Chamando ${toUser}...`;
-            elements.callStatus.textContent = "Aguardando resposta...";
-            elements.callButtons.innerHTML = '<button class="end-call">Cancelar</button>';
-            elements.callContainer.style.display = 'flex';
-            
-            document.querySelector('.end-call').addEventListener('click', endCall);
-            
-            // Monitorar resposta
-            db.ref(`calls/${callId}/status`).on('value', snap => {
-                if (!snap.val()) return;
-                
-                if (snap.val() === 'answered') {
-                    elements.callStatus.textContent = "Chamada atendida! Conectando...";
-                    setupWebRTC(callId, 'caller');
-                } else if (snap.val() === 'rejected') {
-                    showNotification(`${toUser} recusou a chamada`);
-                    endCall();
-                } else if (snap.val() === 'ended') {
-                    endCall();
-                }
-            });
-
-            // Timeout após 30 segundos
-            setTimeout(() => {
-                if (currentCall && currentCall.id === callId) {
-                    showNotification(`${toUser} não atendeu`);
-                    endCall();
-                }
-            }, 30000);
-        }
-
-        function showIncomingCall(from, callId) {
-            elements.callInfo.textContent = `Chamada de ${from}`;
-            elements.callStatus.textContent = "Chamando...";
-            elements.callButtons.innerHTML = `
-                <button class="accept-call">Atender</button>
-                <button class="reject-call">Recusar</button>
-            `;
-            elements.callContainer.style.display = 'flex';
-            currentCall = { id: callId, from: from, type: 'incoming' };
-            
-            document.querySelector('.accept-call').addEventListener('click', () => {
-                db.ref(`calls/${callId}`).update({ 
-                    status: 'answered',
-                    answeredAt: firebase.database.ServerValue.TIMESTAMP
-                });
-                setupWebRTC(callId, 'callee');
-                elements.callButtons.innerHTML = '<button class="end-call">Encerrar</button>';
-                document.querySelector('.end-call').addEventListener('click', endCall);
-            });
-            
-            document.querySelector('.reject-call').addEventListener('click', () => {
-                db.ref(`calls/${callId}`).update({ 
-                    status: 'rejected',
-                    endedAt: firebase.database.ServerValue.TIMESTAMP
-                });
-                endCall();
-            });
-
-            // Timeout após 30 segundos
-            setTimeout(() => {
-                if (currentCall && currentCall.id === callId) {
-                    endCall();
-                }
-            }, 30000);
-        }
-
-        async function setupWebRTC(callId, role) {
             try {
-                // 1. Obter stream de áudio
-                localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                
-                // 2. Criar conexão peer-to-peer
-                peerConnection = new RTCPeerConnection({
-                    iceServers: [
-                        { urls: 'stun:stun.l.google.com:19302' },
-                        { urls: 'stun:stun1.l.google.com:19302' }
-                    ]
+                localStream = await navigator.mediaDevices.getUserMedia({ 
+                    audio: {
+                        echoCancellation: true,
+                        noiseSuppression: true
+                    } 
                 });
 
-                // 3. Adicionar stream local
+                peerConnection = new RTCPeerConnection(ICE_SERVERS);
                 localStream.getTracks().forEach(track => {
                     peerConnection.addTrack(track, localStream);
                 });
 
-                // 4. Configurar recebimento de áudio remoto
-                peerConnection.ontrack = event => {
-                    const audio = new Audio();
-                    audio.srcObject = event.streams[0];
-                    audio.play().catch(e => console.log("Erro ao reproduzir áudio:", e));
-                };
-
-                // 5. Configurar ICE candidates
-                peerConnection.onicecandidate = event => {
-                    if (event.candidate) {
-                        db.ref(`calls/${callId}/iceCandidates/${role}`).push({
-                            candidate: event.candidate.toJSON(),
-                            timestamp: firebase.database.ServerValue.TIMESTAMP
-                        });
-                    }
-                };
-
-                // 6. Configurar estado da conexão
-                peerConnection.onconnectionstatechange = () => {
-                    if (peerConnection.connectionState === 'connected') {
-                        elements.callStatus.textContent = "Chamada conectada!";
-                    } else if (peerConnection.connectionState === 'disconnected') {
-                        endCall();
-                    }
-                };
-
-                // 7. Negociação de chamada
-                if (role === 'caller') {
-                    const offer = await peerConnection.createOffer();
-                    await peerConnection.setLocalDescription(offer);
-                    
-                    await db.ref(`calls/${callId}`).update({
-                        offer: {
-                            type: offer.type,
-                            sdp: offer.sdp
-                        }
-                    });
-
-                    // Monitorar resposta
-                    callAnswerRef = db.ref(`calls/${callId}/answer`);
-                    callAnswerRef.on('value', async snap => {
-                        const answer = snap.val();
-                        if (answer && peerConnection.signalingState !== 'closed') {
-                            await peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
-                        }
-                    });
-                } else { // Callee
-                    callRequestRef = db.ref(`calls/${callId}/offer`);
-                    callRequestRef.on('value', async snap => {
-                        const offer = snap.val();
-                        if (offer && peerConnection.signalingState !== 'closed') {
-                            await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
-                            const answer = await peerConnection.createAnswer();
-                            await peerConnection.setLocalDescription(answer);
-                            
-                            await db.ref(`calls/${callId}`).update({
-                                answer: {
-                                    type: answer.type,
-                                    sdp: answer.sdp
-                                }
-                            });
-                        }
-                    });
-                }
-
-                // 8. Monitorar ICE candidates
-                iceCandidatesRef = db.ref(`calls/${callId}/iceCandidates/${role === 'caller' ? 'callee' : 'caller'}`);
-                iceCandidatesRef.on('child_added', snap => {
-                    const candidate = snap.val().candidate;
-                    if (candidate && peerConnection.signalingState !== 'closed') {
-                        peerConnection.addIceCandidate(new RTCIceCandidate(candidate))
-                            .catch(e => console.log("Erro ao adicionar ICE candidate:", e));
-                    }
+                // Configurar chamada no Firebase
+                const callId = callsRef.push().key;
+                currentCall = { id: callId, to: toUser };
+                callsRef.child(callId).set({
+                    from: currentUser,
+                    to: toUser,
+                    status: 'requested',
+                    timestamp: firebase.database.ServerValue.TIMESTAMP
                 });
 
-                // 9. Monitorar encerramento
-                db.ref(`calls/${callId}/status`).on('value', snap => {
-                    if (snap.val() === 'ended') {
+                // Configurar UI
+                elements.callInfo.textContent = `Chamando ${toUser}...`;
+                elements.callButtons.innerHTML = '<button class="end-call">Cancelar</button>';
+                elements.callContainer.style.display = 'flex';
+                
+                document.querySelector('.end-call').addEventListener('click', endCall);
+
+                // Monitorar resposta
+                callsRef.child(callId).on('value', (snapshot) => {
+                    const callData = snapshot.val();
+                    if (!callData) return;
+                    
+                    if (callData.status === 'answered') {
+                        elements.callInfo.textContent = `Em chamada com ${toUser}`;
+                        setupWebRTC(callId, 'caller');
+                    } else if (callData.status === 'rejected') {
+                        showNotification(`${toUser} recusou a chamada`);
                         endCall();
                     }
                 });
 
             } catch (error) {
                 console.error("Erro na chamada:", error);
-                showNotification("Erro na chamada: " + error.message);
+                showNotification("Erro: " + error.message);
                 endCall();
             }
         }
 
-        function endCall() {
-            if (currentCall) {
-                // Limpar listeners
-                if (callAnswerRef) callAnswerRef.off();
-                if (callRequestRef) callRequestRef.off();
-                if (iceCandidatesRef) iceCandidatesRef.off();
-                
-                // Encerrar no Firebase
-                if (currentCall.id) {
-                    db.ref(`calls/${currentCall.id}`).update({ 
-                        status: 'ended',
-                        endedAt: firebase.database.ServerValue.TIMESTAMP
-                    }).catch(e => console.log("Erro ao encerrar chamada:", e));
-                }
-                
-                // Encerrar conexões
-                if (peerConnection) {
-                    peerConnection.close();
-                    peerConnection = null;
-                }
-                
-                if (localStream) {
-                    localStream.getTracks().forEach(track => track.stop());
-                    localStream = null;
-                }
-                
-                // Resetar UI
-                elements.callContainer.style.display = 'none';
-                currentCall = null;
+        async function setupWebRTC(callId, role) {
+            const offer = await peerConnection.createOffer();
+            await peerConnection.setLocalDescription(offer);
+            
+            if (role === 'caller') {
+                callsRef.child(callId).update({
+                    offer: {
+                        type: offer.type,
+                        sdp: offer.sdp
+                    }
+                });
             }
+            
+            peerConnection.onicecandidate = (event) => {
+                if (event.candidate) {
+                    callsRef.child(`${callId}/iceCandidates/${role}`).push({
+                        candidate: event.candidate.toJSON(),
+                        timestamp: firebase.database.ServerValue.TIMESTAMP
+                    });
+                }
+            };
         }
 
-        // Limpeza ao sair
-        window.addEventListener('beforeunload', endCall);
+        function endCall() {
+            if (currentCall?.id) {
+                callsRef.child(currentCall.id).update({
+                    status: 'ended',
+                    endedAt: firebase.database.ServerValue.TIMESTAMP
+                });
+            }
+            if (peerConnection) peerConnection.close();
+            if (localStream) localStream.getTracks().forEach(track => track.stop());
+            elements.callContainer.style.display = 'none';
+            currentCall = null;
+        }
+
+        // ================= POLYFILLS PARA IPAD =================
+        if (/iPad|iPhone|iPod/.test(navigator.userAgent)) {
+            RTCPeerConnection = window.RTCPeerConnection || window.webkitRTCPeerConnection;
+            navigator.mediaDevices.getUserMedia = navigator.mediaDevices.getUserMedia || 
+                navigator.webkitGetUserMedia || navigator.mozGetUserMedia;
+        }
     </script>
 </body>
 </html>
