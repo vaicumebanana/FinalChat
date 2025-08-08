@@ -145,6 +145,9 @@
             font-weight: bold;
             font-size: 1.2em;
         }
+        .audio-container {
+            margin-top: 10px;
+        }
     </style>
 </head>
 <body>
@@ -187,6 +190,9 @@
         <div class="call-box">
             <div id="call-info">Chamando...</div>
             <div id="call-status"></div>
+            <div class="audio-container">
+                <audio id="remote-audio" autoplay></audio>
+            </div>
             <div id="call-buttons"></div>
         </div>
     </div>
@@ -211,7 +217,7 @@
         
         let currentUser = "";
         let userRef, presenceRef, messagesRef, privateMessagesRef, callsRef;
-        let peerConnection, localStream, currentCall;
+        let peerConnection, localStream, remoteStream, currentCall;
         let onlineUsers = {};
         let currentChat = 'public';
         let privateChatWith = null;
@@ -231,7 +237,8 @@
             callButtons: document.getElementById('call-buttons'),
             notification: document.getElementById('notification'),
             chatTitle: document.getElementById('chat-title'),
-            backToPublic: document.getElementById('back-to-public')
+            backToPublic: document.getElementById('back-to-public'),
+            remoteAudio: document.getElementById('remote-audio')
         };
 
         // ================= FUNÇÕES BÁSICAS =================
@@ -347,8 +354,19 @@
 
         async function acceptCall(callId, fromUser) {
             try {
+                // Criar stream remoto
+                remoteStream = new MediaStream();
+                elements.remoteAudio.srcObject = remoteStream;
+                
                 // Configurar conexão peer
                 peerConnection = new RTCPeerConnection(ICE_SERVERS);
+                
+                // Configurar tratamento de track remoto
+                peerConnection.ontrack = (event) => {
+                    event.streams[0].getTracks().forEach(track => {
+                        remoteStream.addTrack(track);
+                    });
+                };
                 
                 // Obter stream de mídia local
                 localStream = await navigator.mediaDevices.getUserMedia({ 
@@ -384,7 +402,7 @@
                 });
                 
                 // Configurar WebRTC
-                setupWebRTC(callId, 'callee');
+                await setupWebRTC(callId, 'callee');
                 
             } catch (error) {
                 console.error("Erro ao atender chamada:", error);
@@ -524,6 +542,11 @@
 
         async function startCall(toUser) {
             try {
+                // Criar stream remoto
+                remoteStream = new MediaStream();
+                elements.remoteAudio.srcObject = remoteStream;
+                
+                // Obter stream local
                 localStream = await navigator.mediaDevices.getUserMedia({ 
                     audio: {
                         echoCancellation: true,
@@ -533,7 +556,17 @@
                     video: false
                 });
 
+                // Configurar conexão peer
                 peerConnection = new RTCPeerConnection(ICE_SERVERS);
+                
+                // Configurar tratamento de track remoto
+                peerConnection.ontrack = (event) => {
+                    event.streams[0].getTracks().forEach(track => {
+                        remoteStream.addTrack(track);
+                    });
+                };
+                
+                // Adicionar tracks locais
                 localStream.getTracks().forEach(track => {
                     peerConnection.addTrack(track, localStream);
                 });
@@ -553,6 +586,7 @@
                 
                 document.getElementById('end-call-btn').addEventListener('click', endCall);
 
+                // Monitorar resposta da chamada
                 callsRef.child(callId).on('value', (snapshot) => {
                     const callData = snapshot.val();
                     if (!callData) return;
@@ -577,14 +611,37 @@
         }
 
         async function setupWebRTC(callId, role) {
-            if (role === 'callee') {
-                // Callee precisa configurar a resposta
+            if (role === 'caller') {
+                // Criar oferta
+                const offer = await peerConnection.createOffer();
+                await peerConnection.setLocalDescription(offer);
+                
+                // Enviar oferta para o Firebase
+                callsRef.child(callId).update({
+                    offer: {
+                        type: offer.type,
+                        sdp: offer.sdp
+                    }
+                });
+                
+                // Esperar por resposta
+                callsRef.child(callId).on('child_changed', async (snapshot) => {
+                    const callData = snapshot.val();
+                    if (callData.answer) {
+                        const answer = new RTCSessionDescription(callData.answer);
+                        await peerConnection.setRemoteDescription(answer);
+                    }
+                });
+            } else if (role === 'callee') {
+                // Esperar por oferta
                 const offer = await callsRef.child(`${callId}/offer`).once('value');
                 await peerConnection.setRemoteDescription(offer.val());
                 
+                // Criar resposta
                 const answer = await peerConnection.createAnswer();
                 await peerConnection.setLocalDescription(answer);
                 
+                // Enviar resposta para o Firebase
                 callsRef.child(callId).update({
                     answer: {
                         type: answer.type,
@@ -593,6 +650,7 @@
                 });
             }
             
+            // Configurar candidatos ICE
             peerConnection.onicecandidate = (event) => {
                 if (event.candidate) {
                     callsRef.child(`${callId}/iceCandidates/${role}`).push({
@@ -602,17 +660,28 @@
                 }
             };
             
-            // Quando receber candidatos ICE remotos
+            // Processar candidatos ICE remotos
             callsRef.child(`${callId}/iceCandidates/${role === 'caller' ? 'callee' : 'caller'}`).on('child_added', (snapshot) => {
                 const candidate = new RTCIceCandidate(snapshot.val().candidate);
-                peerConnection.addIceCandidate(candidate);
+                peerConnection.addIceCandidate(candidate).catch(e => console.error("Erro ao adicionar candidato ICE:", e));
             });
         }
 
         function endCall() {
-            if (peerConnection) peerConnection.close();
-            if (localStream) localStream.getTracks().forEach(track => track.stop());
+            if (peerConnection) {
+                peerConnection.close();
+                peerConnection = null;
+            }
+            if (localStream) {
+                localStream.getTracks().forEach(track => track.stop());
+                localStream = null;
+            }
+            if (remoteStream) {
+                remoteStream.getTracks().forEach(track => track.stop());
+                remoteStream = null;
+            }
             elements.callContainer.style.display = 'none';
+            elements.remoteAudio.srcObject = null;
             currentCall = null;
         }
 
