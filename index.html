@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>VilorChat Mega - Firebase</title>
+    <title>VilorChat Mega - Chat Público e Privado</title>
     <style>
         :root {
             --primary: #4a6fa5;
@@ -11,6 +11,7 @@
             --bg: #f0f4f8;
             --msg-bg: #fff;
             --user-msg: #e3f2fd;
+            --private-chat: #fff8e1;
         }
         body {
             font-family: 'Segoe UI', sans-serif;
@@ -48,6 +49,12 @@
             cursor: pointer;
         }
         button:hover { background: var(--secondary); }
+        button.secondary {
+            background: #6c757d;
+        }
+        button.secondary:hover {
+            background: #5a6268;
+        }
         .messages-container {
             height: 60vh;
             overflow-y: auto;
@@ -67,6 +74,10 @@
             margin-left: auto;
             max-width: 80%;
         }
+        .private-message {
+            background: var(--private-chat);
+            border-left: 3px solid #ffc107;
+        }
         .user-list {
             height: 60vh;
             overflow-y: auto;
@@ -76,8 +87,24 @@
             margin: 5px 0;
             cursor: pointer;
             border-radius: 5px;
+            position: relative;
         }
         .user-item:hover { background: #e9ecef; }
+        .user-item .user-actions {
+            display: none;
+            position: absolute;
+            right: 5px;
+            top: 5px;
+        }
+        .user-item:hover .user-actions {
+            display: flex;
+            gap: 5px;
+        }
+        .user-actions button {
+            width: auto;
+            padding: 3px 8px;
+            font-size: 12px;
+        }
         .call-container {
             position: fixed;
             top: 0;
@@ -85,10 +112,17 @@
             right: 0;
             bottom: 0;
             background: rgba(0,0,0,0.8);
-            display: none;
+            display: flex;
             justify-content: center;
             align-items: center;
             z-index: 1000;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s;
+        }
+        .call-container.active {
+            opacity: 1;
+            pointer-events: all;
         }
         .call-box {
             background: white;
@@ -106,13 +140,24 @@
             padding: 10px 15px;
             border-radius: 5px;
             display: none;
+            z-index: 1100;
         }
-        .call-btn {
-            background: #8BC34A;
-            padding: 5px 10px;
-            border-radius: 4px;
-            font-size: 12px;
-            float: right;
+        .chat-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .chat-title {
+            font-weight: bold;
+            font-size: 1.2em;
+        }
+        .audio-controls {
+            background: #f8f9fa;
+            padding: 10px;
+            margin-top: 10px;
+            border-radius: 5px;
+            border: 1px solid #ddd;
         }
     </style>
 </head>
@@ -140,6 +185,10 @@
                 <div class="user-list" id="user-list"></div>
             </div>
             <div class="chat-area">
+                <div class="chat-header">
+                    <div class="chat-title" id="chat-title">Chat Público</div>
+                    <button id="back-to-public" class="secondary" style="display:none">Voltar ao Público</button>
+                </div>
                 <div class="messages-container" id="messages-container"></div>
                 <textarea id="message-input" placeholder="Digite sua mensagem..."></textarea>
                 <button id="send-btn">Enviar</button>
@@ -175,9 +224,11 @@
         const FIXED_PASSWORD = "This";
         
         let currentUser = "";
-        let userRef, presenceRef, messagesRef, callsRef;
+        let userRef, presenceRef, messagesRef, privateMessagesRef, callsRef;
         let peerConnection, localStream, currentCall;
         let onlineUsers = {};
+        let currentChat = 'public'; // 'public' ou userId privado
+        let privateChatWith = null;
 
         // ================= ELEMENTOS DA INTERFACE =================
         const elements = {
@@ -192,7 +243,9 @@
             callInfo: document.getElementById('call-info'),
             callStatus: document.getElementById('call-status'),
             callButtons: document.getElementById('call-buttons'),
-            notification: document.getElementById('notification')
+            notification: document.getElementById('notification'),
+            chatTitle: document.getElementById('chat-title'),
+            backToPublic: document.getElementById('back-to-public')
         };
 
         // ================= FUNÇÕES BÁSICAS =================
@@ -227,6 +280,7 @@
             // Referências Firebase
             presenceRef = database.ref('presence');
             messagesRef = database.ref('messages/public');
+            privateMessagesRef = database.ref('messages/private');
             callsRef = database.ref('calls');
 
             // Registrar usuário online
@@ -249,10 +303,8 @@
                 updateUserList();
             });
 
-            // Carregar mensagens
-            messagesRef.limitToLast(50).on('child_added', (snapshot) => {
-                displayMessage(snapshot.val());
-            });
+            // Carregar mensagens públicas
+            loadPublicMessages();
 
             // Enviar mensagem
             document.getElementById('send-btn').addEventListener('click', sendMessage);
@@ -262,6 +314,54 @@
                     sendMessage();
                 }
             });
+
+            // Botão voltar ao chat público
+            elements.backToPublic.addEventListener('click', () => {
+                currentChat = 'public';
+                privateChatWith = null;
+                elements.chatTitle.textContent = 'Chat Público';
+                elements.backToPublic.style.display = 'none';
+                loadPublicMessages();
+            });
+        }
+
+        function loadPublicMessages() {
+            // Limpar listeners anteriores
+            messagesRef.off();
+            
+            elements.msgContainer.innerHTML = '';
+            messagesRef.limitToLast(50).on('child_added', (snapshot) => {
+                displayMessage(snapshot.val(), 'public');
+            });
+        }
+
+        function startPrivateChat(withUser) {
+            currentChat = 'private';
+            privateChatWith = withUser;
+            elements.chatTitle.textContent = `Chat com ${withUser}`;
+            elements.backToPublic.style.display = 'block';
+            
+            // Limpar mensagens atuais
+            elements.msgContainer.innerHTML = '';
+            
+            // Carregar mensagens privadas
+            privateMessagesRef.off();
+            
+            // Carregar minhas mensagens para o usuário
+            privateMessagesRef
+                .orderByChild('fromTo')
+                .equalTo(`${currentUser}_${withUser}`)
+                .on('child_added', (snapshot) => {
+                    displayMessage(snapshot.val(), 'private');
+                });
+            
+            // Carregar mensagens do usuário para mim
+            privateMessagesRef
+                .orderByChild('fromTo')
+                .equalTo(`${withUser}_${currentUser}`)
+                .on('child_added', (snapshot) => {
+                    displayMessage(snapshot.val(), 'private');
+                });
         }
 
         function updateUserList() {
@@ -271,16 +371,42 @@
                 
                 const userEl = document.createElement('div');
                 userEl.className = 'user-item';
-                userEl.innerHTML = `${user} <button class="call-btn">Chamar</button>`;
-                userEl.querySelector('.call-btn').addEventListener('click', () => startCall(user));
+                userEl.innerHTML = `
+                    ${user}
+                    <div class="user-actions">
+                        <button class="private-chat-btn">Chat</button>
+                        <button class="call-btn">Chamar</button>
+                    </div>
+                `;
+                
+                userEl.querySelector('.private-chat-btn').addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    startPrivateChat(user);
+                });
+                
+                userEl.querySelector('.call-btn').addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    startCall(user);
+                });
+                
+                userEl.addEventListener('click', () => {
+                    startPrivateChat(user);
+                });
+                
                 elements.userList.appendChild(userEl);
             });
         }
 
-        function displayMessage(msg) {
+        function displayMessage(msg, type) {
             const msgEl = document.createElement('div');
-            msgEl.className = `message ${msg.user === currentUser ? 'user-message' : ''}`;
-            msgEl.innerHTML = `<strong>${msg.user}</strong>: ${msg.text}`;
+            msgEl.className = `message ${msg.user === currentUser ? 'user-message' : ''} ${type === 'private' ? 'private-message' : ''}`;
+            
+            if (type === 'private' && msg.user !== currentUser) {
+                msgEl.innerHTML = `<strong>${msg.user} (privado)</strong>: ${msg.text}`;
+            } else {
+                msgEl.innerHTML = `<strong>${msg.user}</strong>: ${msg.text}`;
+            }
+            
             elements.msgContainer.appendChild(msgEl);
             elements.msgContainer.scrollTop = elements.msgContainer.scrollHeight;
         }
@@ -289,11 +415,23 @@
             const text = elements.msgInput.value.trim();
             if (!text) return;
             
-            messagesRef.push({
-                user: currentUser,
-                text: text,
-                timestamp: firebase.database.ServerValue.TIMESTAMP
-            });
+            if (currentChat === 'public') {
+                // Mensagem pública
+                messagesRef.push({
+                    user: currentUser,
+                    text: text,
+                    timestamp: firebase.database.ServerValue.TIMESTAMP
+                });
+            } else {
+                // Mensagem privada
+                privateMessagesRef.push({
+                    user: currentUser,
+                    text: text,
+                    to: privateChatWith,
+                    fromTo: `${currentUser}_${privateChatWith}`,
+                    timestamp: firebase.database.ServerValue.TIMESTAMP
+                });
+            }
             
             elements.msgInput.value = '';
         }
@@ -301,14 +439,9 @@
         // ================= SISTEMA DE CHAMADAS =================
         const ICE_SERVERS = {
             iceServers: [
-                // STUN Servers (conexão direta)
                 { urls: "stun:stun.l.google.com:19302" },
                 { urls: "stun:stun1.l.google.com:19302" },
                 { urls: "stun:stun2.l.google.com:19302" },
-                { urls: "stun:stun3.l.google.com:19302" },
-                { urls: "stun:stun4.l.google.com:19302" },
-                
-                // TURN Servers (com suas credenciais)
                 { 
                     urls: "turn:numb.viagenie.ca:3478",
                     username: "vaicumebanana@gmail.com",
@@ -316,34 +449,22 @@
                 },
                 { 
                     urls: "turn:openrelay.metered.ca:80",
-                    username: "vaicumebanana@gmail.com",
-                    credential: "vaicumebanana"
-                },
-                { 
-                    urls: "turn:relay.metered.ca:443",
-                    username: "vaicumebanana@gmail.com",
-                    credential: "vaicumebanana"
-                },
-                { 
-                    urls: "turn:turn.anyfirewall.com:443?transport=tcp",
-                    username: "vaicumebanana@gmail.com",
-                    credential: "vaicumebanana"
-                },
-                { 
-                    urls: "turn:global.turn.twilio.com:3478?transport=udp",
-                    username: "vaicumebanana@gmail.com", // (Substitua por credenciais Twilio reais se tiver)
-                    credential: "vaicumebanana"
+                    username: "openrelayproject",
+                    credential: "openrelayproject"
                 }
             ]
         };
 
         async function startCall(toUser) {
             try {
+                // Configurações de áudio com redução de ruído
                 localStream = await navigator.mediaDevices.getUserMedia({ 
                     audio: {
                         echoCancellation: true,
-                        noiseSuppression: true
-                    } 
+                        noiseSuppression: true,
+                        autoGainControl: true
+                    },
+                    video: false
                 });
 
                 peerConnection = new RTCPeerConnection(ICE_SERVERS);
@@ -361,10 +482,10 @@
                     timestamp: firebase.database.ServerValue.TIMESTAMP
                 });
 
-                // Configurar UI
+                // Mostrar tela de chamada
                 elements.callInfo.textContent = `Chamando ${toUser}...`;
                 elements.callButtons.innerHTML = '<button class="end-call">Cancelar</button>';
-                elements.callContainer.style.display = 'flex';
+                elements.callContainer.classList.add('active');
                 
                 document.querySelector('.end-call').addEventListener('click', endCall);
 
@@ -378,6 +499,9 @@
                         setupWebRTC(callId, 'caller');
                     } else if (callData.status === 'rejected') {
                         showNotification(`${toUser} recusou a chamada`);
+                        endCall();
+                    } else if (callData.status === 'ended') {
+                        showNotification(`${toUser} encerrou a chamada`);
                         endCall();
                     }
                 });
@@ -421,7 +545,7 @@
             }
             if (peerConnection) peerConnection.close();
             if (localStream) localStream.getTracks().forEach(track => track.stop());
-            elements.callContainer.style.display = 'none';
+            elements.callContainer.classList.remove('active');
             currentCall = null;
         }
 
