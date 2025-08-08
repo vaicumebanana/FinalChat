@@ -145,13 +145,6 @@
             font-weight: bold;
             font-size: 1.2em;
         }
-        .audio-controls {
-            background: #f8f9fa;
-            padding: 10px;
-            margin-top: 10px;
-            border-radius: 5px;
-            border: 1px solid #ddd;
-        }
     </style>
 </head>
 <body>
@@ -310,6 +303,102 @@
                 elements.backToPublic.style.display = 'none';
                 loadPublicMessages();
             });
+
+            // Configurar listener para chamadas recebidas
+            setupCallListener();
+        }
+
+        function setupCallListener() {
+            callsRef.orderByChild('to').equalTo(currentUser).on('child_added', (snapshot) => {
+                const callData = snapshot.val();
+                
+                // Ignorar chamadas já finalizadas ou do próprio usuário
+                if (callData.status !== 'requested' || callData.from === currentUser) return;
+                
+                // Mostrar tela de chamada recebida
+                showIncomingCall(callData.from, snapshot.key);
+            });
+        }
+
+        function showIncomingCall(fromUser, callId) {
+            elements.callInfo.textContent = `${fromUser} está chamando...`;
+            elements.callButtons.innerHTML = `
+                <button id="accept-call-btn">Atender</button>
+                <button id="reject-call-btn">Recusar</button>
+            `;
+            elements.callContainer.style.display = 'flex';
+            
+            // Configurar tempo limite para chamada não atendida
+            const callTimeout = setTimeout(() => {
+                endCall();
+                showNotification("Chamada não atendida");
+            }, 30000);
+            
+            document.getElementById('accept-call-btn').addEventListener('click', () => {
+                clearTimeout(callTimeout);
+                acceptCall(callId, fromUser);
+            });
+            
+            document.getElementById('reject-call-btn').addEventListener('click', () => {
+                clearTimeout(callTimeout);
+                rejectCall(callId);
+            });
+        }
+
+        async function acceptCall(callId, fromUser) {
+            try {
+                // Configurar conexão peer
+                peerConnection = new RTCPeerConnection(ICE_SERVERS);
+                
+                // Obter stream de mídia local
+                localStream = await navigator.mediaDevices.getUserMedia({ 
+                    audio: {
+                        echoCancellation: true,
+                        noiseSuppression: true,
+                        autoGainControl: true
+                    },
+                    video: false
+                });
+                
+                // Adicionar tracks locais
+                localStream.getTracks().forEach(track => {
+                    peerConnection.addTrack(track, localStream);
+                });
+                
+                // Atualizar status da chamada para "answered"
+                callsRef.child(callId).update({
+                    status: 'answered',
+                    answeredAt: firebase.database.ServerValue.TIMESTAMP
+                });
+                
+                // Configurar UI
+                elements.callInfo.textContent = `Em chamada com ${fromUser}`;
+                elements.callButtons.innerHTML = '<button id="end-call-btn">Encerrar</button>';
+                
+                document.getElementById('end-call-btn').addEventListener('click', () => {
+                    endCall();
+                    callsRef.child(callId).update({
+                        status: 'ended',
+                        endedAt: firebase.database.ServerValue.TIMESTAMP
+                    });
+                });
+                
+                // Configurar WebRTC
+                setupWebRTC(callId, 'callee');
+                
+            } catch (error) {
+                console.error("Erro ao atender chamada:", error);
+                showNotification("Erro ao atender chamada");
+                endCall();
+            }
+        }
+
+        function rejectCall(callId) {
+            callsRef.child(callId).update({
+                status: 'rejected',
+                rejectedAt: firebase.database.ServerValue.TIMESTAMP
+            });
+            endCall();
         }
 
         function loadPublicMessages() {
@@ -459,7 +548,7 @@
                 });
 
                 elements.callInfo.textContent = `Chamando ${toUser}...`;
-                elements.callButtons.innerHTML = '<button id="end-call-btn" class="end-call">Cancelar</button>';
+                elements.callButtons.innerHTML = '<button id="end-call-btn">Cancelar</button>';
                 elements.callContainer.style.display = 'flex';
                 
                 document.getElementById('end-call-btn').addEventListener('click', endCall);
@@ -474,6 +563,9 @@
                     } else if (callData.status === 'rejected') {
                         showNotification(`${toUser} recusou a chamada`);
                         endCall();
+                    } else if (callData.status === 'ended') {
+                        showNotification("Chamada encerrada");
+                        endCall();
                     }
                 });
 
@@ -485,14 +577,18 @@
         }
 
         async function setupWebRTC(callId, role) {
-            const offer = await peerConnection.createOffer();
-            await peerConnection.setLocalDescription(offer);
-            
-            if (role === 'caller') {
+            if (role === 'callee') {
+                // Callee precisa configurar a resposta
+                const offer = await callsRef.child(`${callId}/offer`).once('value');
+                await peerConnection.setRemoteDescription(offer.val());
+                
+                const answer = await peerConnection.createAnswer();
+                await peerConnection.setLocalDescription(answer);
+                
                 callsRef.child(callId).update({
-                    offer: {
-                        type: offer.type,
-                        sdp: offer.sdp
+                    answer: {
+                        type: answer.type,
+                        sdp: answer.sdp
                     }
                 });
             }
@@ -505,15 +601,15 @@
                     });
                 }
             };
+            
+            // Quando receber candidatos ICE remotos
+            callsRef.child(`${callId}/iceCandidates/${role === 'caller' ? 'callee' : 'caller'}`).on('child_added', (snapshot) => {
+                const candidate = new RTCIceCandidate(snapshot.val().candidate);
+                peerConnection.addIceCandidate(candidate);
+            });
         }
 
         function endCall() {
-            if (currentCall?.id) {
-                callsRef.child(currentCall.id).update({
-                    status: 'ended',
-                    endedAt: firebase.database.ServerValue.TIMESTAMP
-                });
-            }
             if (peerConnection) peerConnection.close();
             if (localStream) localStream.getTracks().forEach(track => track.stop());
             elements.callContainer.style.display = 'none';
