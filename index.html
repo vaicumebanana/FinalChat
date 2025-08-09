@@ -3,12 +3,19 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>VilorChat Compact Pro</title>
+    <title>VilorChat Ultra Pro</title>
     <style>
         :root {
             --primary: #4361ee;
-            --secondary: #3a0ca3;
+            --primary-dark: #3a0ca3;
+            --primary-light: #4895ef;
+            --secondary: #7209b7;
+            --success: #4cc9f0;
+            --danger: #e71d36;
+            --warning: #f72585;
+            --info: #2ec4b6;
             --bg: #f8f9fa;
+            --bg-dark: #e9ecef;
             --msg-bg: #ffffff;
             --user-msg: #e0fbfc;
             --private-chat: #fff3b0;
@@ -16,183 +23,321 @@
             --end-call: #e71d36;
             --noise-reduction: #4cc9f0;
             --incoming-call: #7209b7;
+            --text-dark: #212529;
+            --text-light: #f8f9fa;
+            --border-radius: 12px;
+            --box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            --transition: all 0.3s ease;
+        }
+        
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
         }
         
         body {
-            font-family: 'Segoe UI', sans-serif;
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
             margin: 0;
             padding: 10px;
             background: var(--bg);
-            max-width: 800px;
+            max-width: 1000px;
             margin: 0 auto;
+            color: var(--text-dark);
+            line-height: 1.6;
         }
         
         #login-container, #name-container {
             background: white;
-            padding: 20px;
-            border-radius: 10px;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-            margin-bottom: 10px;
-            max-width: 400px;
-            margin: 10px auto;
+            padding: 25px;
+            border-radius: var(--border-radius);
+            box-shadow: var(--box-shadow);
+            margin: 20px auto;
+            max-width: 450px;
+            animation: fadeIn 0.5s ease-out;
         }
         
         #chat-container {
             display: none;
             height: 90vh;
-            max-height: 600px;
+            max-height: 800px;
             background: white;
-            border-radius: 10px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            border-radius: var(--border-radius);
+            box-shadow: var(--box-shadow);
             overflow: hidden;
+            position: relative;
+            animation: slideUp 0.4s ease-out;
         }
         
         .chat-header {
-            padding: 12px 15px;
-            background: var(--primary);
-            color: white;
+            padding: 15px 20px;
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+            color: var(--text-light);
             display: flex;
             justify-content: space-between;
             align-items: center;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            position: relative;
+            z-index: 10;
         }
         
         .chat-area {
             display: flex;
             height: calc(100% - 150px);
+            position: relative;
         }
         
         .user-list {
-            width: 150px;
-            border-right: 1px solid #eee;
+            width: 180px;
+            border-right: 1px solid var(--bg-dark);
             overflow-y: auto;
-            padding: 5px;
+            padding: 10px;
+            background: var(--bg);
+            transition: var(--transition);
         }
         
         .user-item {
-            padding: 8px;
-            margin: 3px 0;
-            border-radius: 5px;
+            padding: 10px 12px;
+            margin: 5px 0;
+            border-radius: 8px;
             cursor: pointer;
-            font-size: 0.9em;
+            font-size: 0.95em;
             display: flex;
             justify-content: space-between;
             align-items: center;
+            transition: var(--transition);
+            background: var(--msg-bg);
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
         }
         
         .user-item:hover {
-            background: #f1f3f5;
+            background: var(--bg-dark);
+            transform: translateY(-2px);
+            box-shadow: 0 3px 5px rgba(0,0,0,0.1);
+        }
+        
+        .user-item.active {
+            background: var(--primary-light);
+            color: white;
         }
         
         .user-actions {
             display: flex;
-            gap: 5px;
+            gap: 8px;
         }
         
         .call-btn {
             background: none;
             border: none;
             cursor: pointer;
-            font-size: 0.8em;
-            padding: 2px;
+            font-size: 0.9em;
+            padding: 4px;
+            border-radius: 50%;
+            width: 28px;
+            height: 28px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: var(--transition);
+        }
+        
+        .call-btn:hover {
+            transform: scale(1.1);
+            background: rgba(255,255,255,0.2);
         }
         
         .video-call-btn {
             color: var(--primary);
+            background: rgba(67, 97, 238, 0.1);
         }
         
         .audio-call-btn {
-            color: var(--call-bg);
+            color: var(--info);
+            background: rgba(46, 196, 182, 0.1);
         }
         
         .messages-container {
             flex: 1;
-            padding: 10px;
+            padding: 15px;
             overflow-y: auto;
+            background: var(--bg);
+            background-image: 
+                linear-gradient(rgba(248, 249, 250, 0.9), rgba(248, 249, 250, 0.9)),
+                url('data:image/svg+xml;utf8,<svg width="100" height="100" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><path fill="%234361ee" fill-opacity="0.05" d="M30,10L50,30L70,10L90,30L70,50L90,70L70,90L50,70L30,90L10,70L30,50L10,30L30,10Z"/></svg>');
+            background-size: 200px;
         }
         
         .message {
             max-width: 80%;
-            padding: 8px 12px;
-            margin-bottom: 8px;
-            border-radius: 12px;
-            font-size: 0.9em;
-            line-height: 1.3;
+            padding: 12px 15px;
+            margin-bottom: 12px;
+            border-radius: var(--border-radius);
+            font-size: 0.95em;
+            line-height: 1.4;
+            position: relative;
+            word-wrap: break-word;
+            white-space: pre-wrap;
+            animation: messageIn 0.3s ease-out;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
         }
         
         .user-message {
             background: var(--user-msg);
             margin-left: auto;
-            border-bottom-right-radius: 3px;
+            border-bottom-right-radius: 5px;
         }
         
         .other-message {
             background: var(--msg-bg);
             margin-right: auto;
-            border-bottom-left-radius: 3px;
+            border-bottom-left-radius: 5px;
         }
         
         .private-message {
             background: var(--private-chat);
-            border-left: 3px solid var(--secondary);
+            border-left: 4px solid var(--secondary);
+        }
+        
+        .message-info {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 5px;
+        }
+        
+        .message-user {
+            font-weight: 600;
+            font-size: 1.05em;
+        }
+        
+        .message-time {
+            font-size: 0.75em;
+            opacity: 0.7;
+            margin-left: 10px;
+        }
+        
+        .private-label {
+            font-size: 0.7em;
+            background: var(--secondary);
+            color: white;
+            padding: 2px 6px;
+            border-radius: 10px;
+            margin-left: 8px;
+            display: inline-block;
         }
         
         .input-area {
             padding: 15px;
             display: flex;
-            gap: 10px;
-            border-top: 1px solid #eee;
-            height: 100px;
+            gap: 12px;
+            border-top: 1px solid var(--bg-dark);
+            height: 120px;
             box-sizing: border-box;
+            background: white;
         }
         
         #message-input {
             flex: 1;
-            padding: 12px 15px;
-            border: 1px solid #ddd;
-            border-radius: 15px;
+            padding: 15px;
+            border: 1px solid var(--bg-dark);
+            border-radius: var(--border-radius);
             resize: none;
             font-size: 1em;
             height: 100%;
-            min-height: 70px;
+            min-height: 90px;
+            transition: var(--transition);
+            font-family: inherit;
+        }
+        
+        #message-input:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 2px rgba(67, 97, 238, 0.2);
         }
         
         #send-btn {
-            background: var(--primary);
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
             color: white;
             border: none;
-            border-radius: 15px;
+            border-radius: var(--border-radius);
             padding: 0 20px;
             cursor: pointer;
             font-size: 1em;
-            width: 80px;
+            width: 90px;
             height: 100%;
+            transition: var(--transition);
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 5px;
+        }
+        
+        #send-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 3px 8px rgba(67, 97, 238, 0.3);
+        }
+        
+        #send-btn:active {
+            transform: translateY(0);
         }
         
         input, button {
-            padding: 8px 12px;
-            border-radius: 5px;
-            border: 1px solid #ddd;
+            padding: 12px 15px;
+            border-radius: 8px;
+            border: 1px solid var(--bg-dark);
             width: 100%;
-            margin-bottom: 10px;
+            margin-bottom: 15px;
+            font-size: 1em;
+            transition: var(--transition);
+            font-family: inherit;
+        }
+        
+        input:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 2px rgba(67, 97, 238, 0.2);
         }
         
         button {
-            background: var(--primary);
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
             color: white;
             border: none;
             cursor: pointer;
+            font-weight: 600;
+            transition: var(--transition);
+        }
+        
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 3px 8px rgba(67, 97, 238, 0.3);
+        }
+        
+        button:active {
+            transform: translateY(0);
         }
         
         .notification {
             position: fixed;
-            bottom: 20px;
-            right: 20px;
-            background: #4CAF50;
+            bottom: 25px;
+            right: 25px;
+            background: var(--success);
             color: white;
-            padding: 10px 15px;
-            border-radius: 5px;
+            padding: 12px 20px;
+            border-radius: var(--border-radius);
             display: none;
             z-index: 100;
+            box-shadow: var(--box-shadow);
+            animation: slideIn 0.3s ease-out;
+            font-weight: 500;
+        }
+        
+        .notification.error {
+            background: var(--danger);
+        }
+        
+        .notification.warning {
+            background: var(--warning);
         }
         
         #call-container {
@@ -202,7 +347,7 @@
             left: 0;
             width: 100%;
             height: 100%;
-            background: rgba(0,0,0,0.8);
+            background: rgba(0,0,0,0.9);
             z-index: 1000;
             flex-direction: column;
             align-items: center;
@@ -211,73 +356,94 @@
         
         #remote-video {
             width: 100%;
-            max-width: 600px;
+            max-width: 800px;
+            max-height: 70vh;
             background: black;
             border-radius: 10px;
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
         }
         
         #local-video {
             position: absolute;
             bottom: 20px;
             right: 20px;
-            width: 150px;
+            width: 180px;
+            height: 120px;
             background: black;
-            border-radius: 5px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.5);
+            border: 2px solid white;
         }
         
         .call-controls {
-            margin-top: 20px;
+            margin-top: 25px;
             display: flex;
-            gap: 15px;
+            gap: 20px;
         }
         
         .call-btn {
-            padding: 10px 20px;
+            padding: 12px 25px;
             border-radius: 50px;
             font-size: 1em;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            min-width: 120px;
+            justify-content: center;
         }
         
         .accept-call {
-            background: var(--call-bg);
+            background: linear-gradient(135deg, var(--info), var(--success));
         }
         
         .end-call {
-            background: var(--end-call);
+            background: linear-gradient(135deg, var(--danger), var(--warning));
         }
         
         #call-info {
             color: white;
-            margin-bottom: 15px;
-            font-size: 1.2em;
+            margin-bottom: 20px;
+            font-size: 1.3em;
+            text-align: center;
+            font-weight: 500;
         }
         
         .audio-controls {
             position: fixed;
-            bottom: 70px;
-            right: 20px;
-            background: rgba(0,0,0,0.7);
-            padding: 10px;
-            border-radius: 10px;
+            bottom: 80px;
+            right: 25px;
+            background: rgba(0,0,0,0.8);
+            padding: 15px;
+            border-radius: var(--border-radius);
             z-index: 1001;
             display: flex;
             flex-direction: column;
-            gap: 8px;
+            gap: 12px;
+            box-shadow: var(--box-shadow);
+            backdrop-filter: blur(5px);
         }
         
         .audio-control {
             display: flex;
             align-items: center;
-            gap: 8px;
+            gap: 10px;
             color: white;
-            font-size: 0.9em;
+            font-size: 0.95em;
         }
         
         .audio-control label {
-            width: 100px;
+            width: 120px;
         }
         
         .audio-control input[type="range"] {
-            width: 120px;
+            width: 150px;
+            accent-color: var(--primary);
+        }
+        
+        .audio-control input[type="checkbox"] {
+            width: auto;
+            accent-color: var(--primary);
         }
         
         .active-filter {
@@ -287,13 +453,36 @@
         
         .call-quality-indicator {
             position: absolute;
-            top: 10px;
-            left: 10px;
-            background: rgba(0,0,0,0.5);
+            top: 15px;
+            left: 15px;
+            background: rgba(0,0,0,0.7);
             color: white;
-            padding: 5px 10px;
-            border-radius: 5px;
-            font-size: 0.8em;
+            padding: 8px 15px;
+            border-radius: 20px;
+            font-size: 0.9em;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        
+        .quality-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+        
+        .quality-excellent {
+            background: #4CAF50;
+        }
+        
+        .quality-good {
+            background: #FFC107;
+        }
+        
+        .quality-poor {
+            background: #F44336;
         }
         
         .incoming-call {
@@ -301,76 +490,278 @@
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
-            background: var(--incoming-call);
-            padding: 20px;
-            border-radius: 10px;
+            background: linear-gradient(135deg, var(--secondary), var(--primary-dark));
+            padding: 30px;
+            border-radius: var(--border-radius);
             z-index: 1002;
             text-align: center;
             color: white;
             display: none;
-            box-shadow: 0 0 20px rgba(0,0,0,0.5);
-            width: 300px;
+            box-shadow: 0 0 30px rgba(114, 9, 183, 0.5);
+            width: 350px;
+            max-width: 90%;
+            animation: pulse 2s infinite;
         }
         
         .call-buttons {
             display: flex;
             justify-content: center;
-            gap: 15px;
-            margin-top: 15px;
+            gap: 20px;
+            margin-top: 20px;
         }
         
         .caller-info {
-            font-size: 1.2em;
-            margin-bottom: 10px;
-            font-weight: bold;
+            font-size: 1.4em;
+            margin-bottom: 15px;
+            font-weight: 600;
         }
         
         .call-type {
-            font-size: 0.9em;
-            margin-bottom: 15px;
+            font-size: 1.1em;
+            margin-bottom: 20px;
+            opacity: 0.9;
+        }
+        
+        .user-status {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 5px;
+        }
+        
+        .status-online {
+            background: #4CAF50;
+        }
+        
+        .status-away {
+            background: #FFC107;
+        }
+        
+        .status-busy {
+            background: #F44336;
+        }
+        
+        .typing-indicator {
+            font-size: 0.8em;
+            color: var(--primary);
+            font-style: italic;
+            margin-bottom: 5px;
+            display: none;
+        }
+        
+        .message-actions {
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            display: none;
+        }
+        
+        .message:hover .message-actions {
+            display: flex;
+            gap: 5px;
+        }
+        
+        .message-action-btn {
+            background: rgba(0,0,0,0.1);
+            border: none;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 0.7em;
+            color: inherit;
+        }
+        
+        .message-action-btn:hover {
+            background: rgba(0,0,0,0.2);
+        }
+        
+        /* Animations */
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        
+        @keyframes slideUp {
+            from { 
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to { 
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        @keyframes slideIn {
+            from { 
+                opacity: 0;
+                transform: translateX(20px);
+            }
+            to { 
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+        
+        @keyframes messageIn {
+            from { 
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to { 
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(114, 9, 183, 0.7); }
+            70% { box-shadow: 0 0 0 15px rgba(114, 9, 183, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(114, 9, 183, 0); }
+        }
+        
+        /* Responsive adjustments */
+        @media (max-width: 768px) {
+            .chat-area {
+                flex-direction: column;
+                height: calc(100% - 180px);
+            }
+            
+            .user-list {
+                width: 100%;
+                height: 120px;
+                border-right: none;
+                border-bottom: 1px solid var(--bg-dark);
+                display: flex;
+                overflow-x: auto;
+                flex-wrap: nowrap;
+                padding: 10px 5px;
+            }
+            
+            .user-item {
+                min-width: 120px;
+                margin: 0 5px;
+                flex-direction: column;
+                text-align: center;
+            }
+            
+            .user-actions {
+                margin-top: 5px;
+            }
+            
+            #call-container {
+                justify-content: flex-start;
+                padding-top: 20px;
+            }
+            
+            #remote-video {
+                max-height: 50vh;
+            }
+            
+            #local-video {
+                width: 120px;
+                height: 90px;
+                bottom: 80px;
+            }
+            
+            .audio-controls {
+                bottom: 20px;
+                right: 50%;
+                transform: translateX(50%);
+                flex-direction: row;
+                flex-wrap: wrap;
+                justify-content: center;
+                max-width: 90%;
+            }
+            
+            .audio-control {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            
+            .audio-control label {
+                width: auto;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .input-area {
+                height: 100px;
+            }
+            
+            #message-input {
+                min-height: 70px;
+            }
+            
+            .call-controls {
+                gap: 10px;
+            }
+            
+            .call-btn {
+                padding: 10px 15px;
+                min-width: auto;
+            }
         }
     </style>
 </head>
 <body>
     <!-- Tela de Login -->
     <div id="login-container">
-        <h2 style="text-align: center; margin-bottom: 15px;">VilorChat Pro</h2>
+        <h2 style="text-align: center; margin-bottom: 20px; color: var(--primary);">VilorChat Ultra Pro</h2>
         <input type="text" id="login-username" placeholder="Login" value="VilorCreated">
         <input type="password" id="login-password" placeholder="Senha" value="This">
-        <button id="login-btn">Entrar</button>
+        <button id="login-btn">
+            <span>Entrar</span>
+        </button>
     </div>
 
     <!-- Tela de Nome -->
     <div id="name-container" style="display:none">
-        <h2 style="text-align: center; margin-bottom: 15px;">Escolha seu nome</h2>
-        <input type="text" id="chat-username" placeholder="Seu nome">
-        <button id="confirm-name-btn">Entrar no Chat</button>
+        <h2 style="text-align: center; margin-bottom: 20px; color: var(--primary);">Escolha seu nome</h2>
+        <input type="text" id="chat-username" placeholder="Seu nome" maxlength="20">
+        <button id="confirm-name-btn">
+            <span>Entrar no Chat</span>
+        </button>
     </div>
 
     <!-- Tela do Chat -->
     <div id="chat-container">
         <div class="chat-header">
             <div id="chat-title">Chat Público</div>
-            <button id="back-to-public" style="display:none; background: transparent; padding: 0;">← Voltar</button>
+            <button id="back-to-public" style="display:none; background: transparent; padding: 0; color: white;">← Voltar</button>
         </div>
         <div class="chat-area">
             <div class="user-list" id="user-list"></div>
-            <div class="messages-container" id="messages-container"></div>
+            <div class="messages-container" id="messages-container">
+                <div class="typing-indicator" id="typing-indicator"></div>
+            </div>
         </div>
         <div class="input-area">
-            <textarea id="message-input" placeholder="Digite sua mensagem..."></textarea>
-            <button id="send-btn">Enviar</button>
+            <textarea id="message-input" placeholder="Digite sua mensagem..." maxlength="500"></textarea>
+            <button id="send-btn">
+                <span>Enviar</span>
+            </button>
         </div>
     </div>
 
     <!-- Tela de Chamada -->
     <div id="call-container">
         <div id="call-info">Chamando...</div>
-        <div class="call-quality-indicator" id="call-quality">Qualidade: Boa</div>
+        <div class="call-quality-indicator" id="call-quality">
+            <span class="quality-dot quality-good"></span>
+            <span>Qualidade: Boa</span>
+        </div>
         <video id="remote-video" autoplay playsinline></video>
         <video id="local-video" autoplay playsinline muted></video>
         <div class="call-controls">
-            <button class="call-btn end-call" id="end-call">Encerrar</button>
+            <button class="call-btn end-call" id="end-call">
+                <span>Encerrar</span>
+            </button>
         </div>
     </div>
 
@@ -379,8 +770,12 @@
         <div class="caller-info" id="caller-info"></div>
         <div class="call-type" id="call-type"></div>
         <div class="call-buttons">
-            <button class="call-btn accept-call" id="accept-call-btn">Aceitar</button>
-            <button class="call-btn end-call" id="reject-call-btn">Recusar</button>
+            <button class="call-btn accept-call" id="accept-call-btn">
+                <span>Aceitar</span>
+            </button>
+            <button class="call-btn end-call" id="reject-call-btn">
+                <span>Recusar</span>
+            </button>
         </div>
     </div>
 
@@ -424,7 +819,7 @@
         const FIXED_PASSWORD = "This";
         
         let currentUser = "";
-        let userRef, presenceRef, messagesRef, privateMessagesRef, callsRef;
+        let userRef, presenceRef, messagesRef, privateMessagesRef, callsRef, typingRef;
         let onlineUsers = {};
         let currentChat = 'public';
         let privateChatWith = null;
@@ -447,6 +842,11 @@
             autoGainControl: false
         };
         let callTimeout = null;
+        
+        // Variáveis para digitação
+        let typingTimeout = null;
+        let isTyping = false;
+        let otherUserTyping = null;
 
         // Elementos da interface
         const elements = {
@@ -474,21 +874,32 @@
             callerInfo: document.getElementById('caller-info'),
             callType: document.getElementById('call-type'),
             acceptCallBtn: document.getElementById('accept-call-btn'),
-            rejectCallBtn: document.getElementById('reject-call-btn')
+            rejectCallBtn: document.getElementById('reject-call-btn'),
+            typingIndicator: document.getElementById('typing-indicator')
         };
 
         // Funções básicas
-        function showNotification(msg, duration=3000) {
+        function showNotification(msg, type='normal', duration=3000) {
             elements.notification.textContent = msg;
+            elements.notification.className = 'notification';
+            
+            if (type === 'error') {
+                elements.notification.classList.add('error');
+            } else if (type === 'warning') {
+                elements.notification.classList.add('warning');
+            }
+            
             elements.notification.style.display = 'block';
-            setTimeout(() => elements.notification.style.display = 'none', duration);
+            setTimeout(() => {
+                elements.notification.style.display = 'none';
+            }, duration);
         }
 
         // Sistema de login
         document.getElementById('login-btn').addEventListener('click', () => {
             if (document.getElementById('login-username').value !== FIXED_LOGIN || 
                 document.getElementById('login-password').value !== FIXED_PASSWORD) {
-                return showNotification("Credenciais inválidas");
+                return showNotification("Credenciais inválidas", 'error');
             }
             elements.login.style.display = 'none';
             elements.name.style.display = 'block';
@@ -497,29 +908,43 @@
         // Sistema de nome
         document.getElementById('confirm-name-btn').addEventListener('click', () => {
             currentUser = document.getElementById('chat-username').value.trim();
-            if (currentUser.length < 2) return showNotification("Nome muito curto");
+            if (currentUser.length < 2) return showNotification("Nome muito curto (mínimo 2 caracteres)", 'error');
+            if (currentUser.length > 20) return showNotification("Nome muito longo (máximo 20 caracteres)", 'error');
+            
             elements.name.style.display = 'none';
             elements.chat.style.display = 'block';
             initializeChat();
-            showNotification(`Bem-vindo, ${currentUser}!`);
+            showNotification(`Bem-vindo, ${currentUser}!`, 'normal', 2000);
         });
 
         // Configurar listeners para controles de áudio
         elements.noiseReduction.addEventListener('input', (e) => {
             noiseReductionLevel = parseFloat(e.target.value);
+            // Aqui você implementaria a redução de ruído real
         });
 
         elements.echoCancellation.addEventListener('change', (e) => {
             audioConstraints.echoCancellation = e.target.checked;
+            updateAudioConstraints();
         });
 
         elements.autoGain.addEventListener('change', (e) => {
             audioConstraints.autoGainControl = e.target.checked;
+            updateAudioConstraints();
         });
 
         elements.noiseSuppression.addEventListener('change', (e) => {
             audioConstraints.noiseSuppression = e.target.checked;
+            updateAudioConstraints();
         });
+
+        function updateAudioConstraints() {
+            if (localStream) {
+                localStream.getAudioTracks().forEach(track => {
+                    track.applyConstraints(audioConstraints);
+                });
+            }
+        }
 
         // Sistema de chat
         function initializeChat() {
@@ -533,13 +958,14 @@
             
             peer.on('error', (err) => {
                 console.error('PeerJS error:', err);
-                showNotification('Erro na conexão de chamada');
+                showNotification('Erro na conexão de chamada', 'error');
             });
 
             presenceRef = database.ref('presence');
             messagesRef = database.ref('messages/public');
             privateMessagesRef = database.ref('messages/private');
             callsRef = database.ref('calls');
+            typingRef = database.ref('typing');
 
             // Registrar usuário online
             userRef = presenceRef.push();
@@ -547,9 +973,14 @@
                 user: currentUser,
                 online: true,
                 peerId: peer.id,
-                timestamp: firebase.database.ServerValue.TIMESTAMP
+                timestamp: firebase.database.ServerValue.TIMESTAMP,
+                status: 'online'
             });
-            userRef.onDisconnect().remove();
+            userRef.onDisconnect().update({
+                online: false,
+                status: 'offline',
+                lastSeen: firebase.database.ServerValue.TIMESTAMP
+            });
 
             // Monitorar usuários online
             presenceRef.orderByChild('online').equalTo(true).on('value', (snapshot) => {
@@ -558,11 +989,29 @@
                     const userData = child.val();
                     if (userData.online && userData.user !== currentUser) {
                         onlineUsers[userData.user] = {
-                            peerId: userData.peerId
+                            peerId: userData.peerId,
+                            status: userData.status || 'online'
                         };
                     }
                 });
                 updateUserList();
+            });
+
+            // Monitorar digitação
+            typingRef.on('child_added', (snapshot) => {
+                const typingData = snapshot.val();
+                if (typingData.to === currentUser && typingData.from !== currentUser) {
+                    otherUserTyping = typingData.from;
+                    updateTypingIndicator();
+                }
+            });
+
+            typingRef.on('child_removed', (snapshot) => {
+                const typingData = snapshot.val();
+                if (typingData.to === currentUser && typingData.from === otherUserTyping) {
+                    otherUserTyping = null;
+                    updateTypingIndicator();
+                }
             });
 
             // Carregar mensagens
@@ -570,6 +1019,7 @@
 
             // Enviar mensagem
             document.getElementById('send-btn').addEventListener('click', sendMessage);
+            elements.msgInput.addEventListener('keydown', handleTyping);
             elements.msgInput.addEventListener('keypress', e => {
                 if (e.key === 'Enter' && !e.shiftKey) {
                     e.preventDefault();
@@ -594,6 +1044,50 @@
             elements.rejectCallBtn.addEventListener('click', rejectIncomingCall);
         }
 
+        function handleTyping(e) {
+            if (!privateChatWith) return;
+            
+            // Usuário começou a digitar
+            if (!isTyping) {
+                isTyping = true;
+                const typingRef = database.ref('typing').push();
+                typingRef.set({
+                    from: currentUser,
+                    to: privateChatWith,
+                    timestamp: firebase.database.ServerValue.TIMESTAMP
+                });
+                typingRef.onDisconnect().remove();
+                
+                // Limpar após 5 segundos de inatividade
+                typingTimeout = setTimeout(() => {
+                    isTyping = false;
+                    typingRef.remove();
+                }, 5000);
+            } else {
+                // Resetar o timeout se o usuário continuar digitando
+                clearTimeout(typingTimeout);
+                typingTimeout = setTimeout(() => {
+                    isTyping = false;
+                    database.ref('typing').orderByChild('from').equalTo(currentUser).once('value', (snapshot) => {
+                        snapshot.forEach(child => {
+                            if (child.val().to === privateChatWith) {
+                                child.ref.remove();
+                            }
+                        });
+                    });
+                }, 5000);
+            }
+        }
+
+        function updateTypingIndicator() {
+            if (otherUserTyping && privateChatWith === otherUserTyping) {
+                elements.typingIndicator.textContent = `${otherUserTyping} está digitando...`;
+                elements.typingIndicator.style.display = 'block';
+            } else {
+                elements.typingIndicator.style.display = 'none';
+            }
+        }
+
         function setupPeerListeners() {
             peer.on('call', (call) => {
                 // Receber chamada
@@ -610,7 +1104,7 @@
                 callTimeout = setTimeout(() => {
                     if (incomingCall) {
                         rejectIncomingCall();
-                        showNotification(`Chamada de ${callPartner} não atendida`);
+                        showNotification(`Chamada de ${callPartner} não atendida`, 'warning');
                     }
                 }, 30000);
             });
@@ -668,12 +1162,12 @@
                 currentCall.on('close', endCall);
                 currentCall.on('error', (err) => {
                     console.error('Call error:', err);
-                    showNotification('Erro na chamada');
+                    showNotification('Erro na chamada', 'error');
                     endCall();
                 });
             } catch (err) {
                 console.error('Error answering call:', err);
-                showNotification('Erro ao atender chamada');
+                showNotification('Erro ao atender chamada', 'error');
                 endCall();
             }
         }
@@ -708,25 +1202,31 @@
                     return;
                 }
                 
-                // Simular verificação de qualidade
+                // Simular verificação de qualidade (em um app real, você usaria métricas reais)
                 const qualityLevels = ['Excelente', 'Boa', 'Ruim'];
                 const quality = qualityLevels[Math.floor(Math.random() * qualityLevels.length)];
-                elements.callQuality.textContent = `Qualidade: ${quality}`;
                 
-                // Cor baseada na qualidade
-                const colors = {
-                    'Excelente': 'lightgreen',
-                    'Boa': 'lightblue',
-                    'Ruim': 'orange'
-                };
-                elements.callQuality.style.color = colors[quality];
+                // Atualizar UI
+                const qualityDot = elements.callQuality.querySelector('.quality-dot');
+                qualityDot.className = 'quality-dot';
+                
+                if (quality === 'Excelente') {
+                    elements.callQuality.textContent = `Qualidade: ${quality}`;
+                    qualityDot.classList.add('quality-excellent');
+                } else if (quality === 'Boa') {
+                    elements.callQuality.textContent = `Qualidade: ${quality}`;
+                    qualityDot.classList.add('quality-good');
+                } else {
+                    elements.callQuality.textContent = `Qualidade: ${quality}`;
+                    qualityDot.classList.add('quality-poor');
+                }
             }, 3000);
         }
 
         function loadPublicMessages() {
             messagesRef.off();
-            elements.msgContainer.innerHTML = '';
-            messagesRef.limitToLast(50).on('child_added', (snapshot) => {
+            elements.msgContainer.innerHTML = '<div class="typing-indicator" id="typing-indicator"></div>';
+            messagesRef.limitToLast(100).on('child_added', (snapshot) => {
                 displayMessage(snapshot.val(), 'public');
             });
         }
@@ -736,13 +1236,15 @@
             privateChatWith = withUser;
             elements.chatTitle.textContent = `Chat com ${withUser}`;
             elements.backToPublic.style.display = 'block';
-            elements.msgContainer.innerHTML = '';
+            elements.msgContainer.innerHTML = '<div class="typing-indicator" id="typing-indicator"></div>';
             
             privateMessagesRef.off();
             
+            // Carregar histórico de mensagens em ambas as direções
             privateMessagesRef
                 .orderByChild('fromTo')
                 .equalTo(`${currentUser}_${withUser}`)
+                .limitToLast(100)
                 .on('child_added', (snapshot) => {
                     displayMessage(snapshot.val(), 'private');
                 });
@@ -750,6 +1252,7 @@
             privateMessagesRef
                 .orderByChild('fromTo')
                 .equalTo(`${withUser}_${currentUser}`)
+                .limitToLast(100)
                 .on('child_added', (snapshot) => {
                     displayMessage(snapshot.val(), 'private');
                 });
@@ -757,18 +1260,38 @@
 
         function updateUserList() {
             elements.userList.innerHTML = '';
+            
+            if (Object.keys(onlineUsers).length === 0) {
+                elements.userList.innerHTML = '<div style="padding: 15px; text-align: center; color: #666;">Nenhum usuário online</div>';
+                return;
+            }
+            
             Object.keys(onlineUsers).forEach(user => {
+                const userData = onlineUsers[user];
                 const userEl = document.createElement('div');
-                userEl.className = 'user-item';
+                userEl.className = `user-item ${privateChatWith === user ? 'active' : ''}`;
+                
+                // Determinar ícone de status
+                let statusIcon = '●';
+                let statusClass = 'status-online';
+                if (userData.status === 'away') {
+                    statusClass = 'status-away';
+                } else if (userData.status === 'busy') {
+                    statusClass = 'status-busy';
+                }
+                
                 userEl.innerHTML = `
-                    <span>${user}</span>
+                    <div style="display: flex; align-items: center;">
+                        <span class="user-status ${statusClass}"></span>
+                        <span>${user}</span>
+                    </div>
                     <div class="user-actions">
                         <button class="call-btn audio-call-btn" title="Chamada de áudio" data-user="${user}" data-type="audio">📞</button>
                         <button class="call-btn video-call-btn" title="Chamada de vídeo" data-user="${user}" data-type="video">📹</button>
                     </div>
                 `;
                 
-                userEl.querySelector('span').addEventListener('click', () => startPrivateChat(user));
+                userEl.querySelector('span:not(.user-status)').addEventListener('click', () => startPrivateChat(user));
                 
                 userEl.querySelector('.audio-call-btn').addEventListener('click', (e) => {
                     e.stopPropagation();
@@ -789,13 +1312,66 @@
             msgEl.className = `message ${msg.user === currentUser ? 'user-message' : 'other-message'} ${type === 'private' ? 'private-message' : ''}`;
             
             const time = new Date(msg.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+            const date = new Date(msg.timestamp).toLocaleDateString();
             
-            if (type === 'private' && msg.user !== currentUser) {
-                msgEl.innerHTML = `<strong>${msg.user}</strong> (privado)<br>${msg.text}<div style="text-align: right; font-size: 0.8em;">${time}</div>`;
+            // Formatar mensagem com quebras de linha
+            const formattedText = msg.text.replace(/\n/g, '<br>');
+            
+            if (type === 'private') {
+                if (msg.user !== currentUser) {
+                    msgEl.innerHTML = `
+                        <div class="message-info">
+                            <span class="message-user">${msg.user}</span>
+                            <span class="private-label">privado</span>
+                            <span class="message-time">${time}</span>
+                        </div>
+                        <div class="message-text">${formattedText}</div>
+                    `;
+                } else {
+                    msgEl.innerHTML = `
+                        <div class="message-info">
+                            <span class="message-user">Você</span>
+                            <span class="private-label">privado</span>
+                            <span class="message-time">${time}</span>
+                        </div>
+                        <div class="message-text">${formattedText}</div>
+                    `;
+                }
             } else {
-                msgEl.innerHTML = `<strong>${msg.user}</strong><br>${msg.text}<div style="text-align: right; font-size: 0.8em;">${time}</div>`;
+                if (msg.user === currentUser) {
+                    msgEl.innerHTML = `
+                        <div class="message-info">
+                            <span class="message-user">Você</span>
+                            <span class="message-time">${time}</span>
+                        </div>
+                        <div class="message-text">${formattedText}</div>
+                    `;
+                } else {
+                    msgEl.innerHTML = `
+                        <div class="message-info">
+                            <span class="message-user">${msg.user}</span>
+                            <span class="message-time">${time}</span>
+                        </div>
+                        <div class="message-text">${formattedText}</div>
+                    `;
+                }
             }
             
+            // Adicionar ações de mensagem (responder, copiar, etc.)
+            const messageActions = document.createElement('div');
+            messageActions.className = 'message-actions';
+            messageActions.innerHTML = `
+                <button class="message-action-btn" title="Copiar">⎘</button>
+                <button class="message-action-btn" title="Responder">↩</button>
+            `;
+            
+            // Implementar funcionalidades dos botões
+            messageActions.querySelector('button:first-child').addEventListener('click', () => {
+                navigator.clipboard.writeText(msg.text);
+                showNotification('Mensagem copiada!', 'normal', 1000);
+            });
+            
+            msgEl.appendChild(messageActions);
             elements.msgContainer.appendChild(msgEl);
             elements.msgContainer.scrollTop = elements.msgContainer.scrollHeight;
         }
@@ -803,6 +1379,19 @@
         function sendMessage() {
             const text = elements.msgInput.value.trim();
             if (!text) return;
+            
+            // Limpar estado de digitação
+            if (isTyping && privateChatWith) {
+                isTyping = false;
+                clearTimeout(typingTimeout);
+                database.ref('typing').orderByChild('from').equalTo(currentUser).once('value', (snapshot) => {
+                    snapshot.forEach(child => {
+                        if (child.val().to === privateChatWith) {
+                            child.ref.remove();
+                        }
+                    });
+                });
+            }
             
             if (currentChat === 'public') {
                 messagesRef.push({
@@ -826,7 +1415,7 @@
         // Funções para chamadas
         async function startCall(toUser, type) {
             if (!onlineUsers[toUser]) {
-                return showNotification(`${toUser} não está mais online`);
+                return showNotification(`${toUser} não está mais online`, 'error');
             }
             
             callType = type;
@@ -884,21 +1473,21 @@
                 call.on('close', endCall);
                 call.on('error', (err) => {
                     console.error('Call error:', err);
-                    showNotification('Erro na chamada');
+                    showNotification('Erro na chamada', 'error');
                     endCall();
                 });
                 
                 // Timeout se a chamada não for atendida
                 setTimeout(() => {
                     if (currentCall && elements.callInfo.textContent.includes('Chamando')) {
-                        showNotification(`${toUser} não atendeu`);
+                        showNotification(`${toUser} não atendeu`, 'warning');
                         endCall();
                     }
                 }, 30000);
                 
             } catch (err) {
                 console.error('Error starting call:', err);
-                showNotification('Erro ao iniciar chamada');
+                showNotification('Erro ao iniciar chamada', 'error');
                 endCall();
             }
         }
