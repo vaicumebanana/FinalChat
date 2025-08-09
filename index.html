@@ -14,6 +14,8 @@
             --private-chat: #fff3b0;
             --call-bg: #2ec4b6;
             --end-call: #e71d36;
+            --noise-reduction: #4cc9f0;
+            --incoming-call: #7209b7;
         }
         
         body {
@@ -248,6 +250,85 @@
             margin-bottom: 15px;
             font-size: 1.2em;
         }
+        
+        .audio-controls {
+            position: fixed;
+            bottom: 70px;
+            right: 20px;
+            background: rgba(0,0,0,0.7);
+            padding: 10px;
+            border-radius: 10px;
+            z-index: 1001;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        
+        .audio-control {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: white;
+            font-size: 0.9em;
+        }
+        
+        .audio-control label {
+            width: 100px;
+        }
+        
+        .audio-control input[type="range"] {
+            width: 120px;
+        }
+        
+        .active-filter {
+            color: var(--noise-reduction);
+            font-weight: bold;
+        }
+        
+        .call-quality-indicator {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: rgba(0,0,0,0.5);
+            color: white;
+            padding: 5px 10px;
+            border-radius: 5px;
+            font-size: 0.8em;
+        }
+        
+        .incoming-call {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: var(--incoming-call);
+            padding: 20px;
+            border-radius: 10px;
+            z-index: 1002;
+            text-align: center;
+            color: white;
+            display: none;
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+            width: 300px;
+        }
+        
+        .call-buttons {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-top: 15px;
+        }
+        
+        .caller-info {
+            font-size: 1.2em;
+            margin-bottom: 10px;
+            font-weight: bold;
+        }
+        
+        .call-type {
+            font-size: 0.9em;
+            margin-bottom: 15px;
+        }
     </style>
 </head>
 <body>
@@ -285,21 +366,49 @@
     <!-- Tela de Chamada -->
     <div id="call-container">
         <div id="call-info">Chamando...</div>
+        <div class="call-quality-indicator" id="call-quality">Qualidade: Boa</div>
         <video id="remote-video" autoplay playsinline></video>
         <video id="local-video" autoplay playsinline muted></video>
         <div class="call-controls">
-            <button class="call-btn accept-call" id="accept-call">Aceitar</button>
             <button class="call-btn end-call" id="end-call">Encerrar</button>
+        </div>
+    </div>
+
+    <!-- Tela de Chamada Recebida -->
+    <div class="incoming-call" id="incoming-call">
+        <div class="caller-info" id="caller-info"></div>
+        <div class="call-type" id="call-type"></div>
+        <div class="call-buttons">
+            <button class="call-btn accept-call" id="accept-call-btn">Aceitar</button>
+            <button class="call-btn end-call" id="reject-call-btn">Recusar</button>
+        </div>
+    </div>
+
+    <!-- Controles de Áudio -->
+    <div class="audio-controls" id="audio-controls" style="display: none;">
+        <div class="audio-control">
+            <label for="noise-reduction">Redução de Ruído</label>
+            <input type="range" id="noise-reduction" min="0" max="1" step="0.1" value="0.7">
+        </div>
+        <div class="audio-control">
+            <label for="echo-cancellation">Cancelar Eco</label>
+            <input type="checkbox" id="echo-cancellation" checked>
+        </div>
+        <div class="audio-control">
+            <label for="auto-gain">Auto Ganho</label>
+            <input type="checkbox" id="auto-gain">
+        </div>
+        <div class="audio-control">
+            <label for="noise-suppression">Supressão de Ruído</label>
+            <input type="checkbox" id="noise-suppression" checked>
         </div>
     </div>
 
     <div class="notification" id="notification"></div>
 
-    <!-- Firebase SDK -->
+    <!-- Bibliotecas -->
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
-    
-    <!-- PeerJS para WebRTC -->
     <script src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"></script>
 
     <script>
@@ -323,10 +432,21 @@
         // Variáveis para chamadas
         let peer;
         let currentCall = null;
+        let incomingCall = null;
         let callType = null;
         let callPartner = null;
         let localStream = null;
-        let callRef = null;
+        let currentCallRef = null;
+        let callListener = null;
+        let audioContext = null;
+        let mediaStreamSource = null;
+        let noiseReductionLevel = 0.7;
+        let audioConstraints = {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: false
+        };
+        let callTimeout = null;
 
         // Elementos da interface
         const elements = {
@@ -343,8 +463,18 @@
             remoteVideo: document.getElementById('remote-video'),
             localVideo: document.getElementById('local-video'),
             callInfo: document.getElementById('call-info'),
-            acceptCallBtn: document.getElementById('accept-call'),
-            endCallBtn: document.getElementById('end-call')
+            endCallBtn: document.getElementById('end-call'),
+            audioControls: document.getElementById('audio-controls'),
+            noiseReduction: document.getElementById('noise-reduction'),
+            echoCancellation: document.getElementById('echo-cancellation'),
+            autoGain: document.getElementById('auto-gain'),
+            noiseSuppression: document.getElementById('noise-suppression'),
+            callQuality: document.getElementById('call-quality'),
+            incomingCall: document.getElementById('incoming-call'),
+            callerInfo: document.getElementById('caller-info'),
+            callType: document.getElementById('call-type'),
+            acceptCallBtn: document.getElementById('accept-call-btn'),
+            rejectCallBtn: document.getElementById('reject-call-btn')
         };
 
         // Funções básicas
@@ -372,6 +502,23 @@
             elements.chat.style.display = 'block';
             initializeChat();
             showNotification(`Bem-vindo, ${currentUser}!`);
+        });
+
+        // Configurar listeners para controles de áudio
+        elements.noiseReduction.addEventListener('input', (e) => {
+            noiseReductionLevel = parseFloat(e.target.value);
+        });
+
+        elements.echoCancellation.addEventListener('change', (e) => {
+            audioConstraints.echoCancellation = e.target.checked;
+        });
+
+        elements.autoGain.addEventListener('change', (e) => {
+            audioConstraints.autoGainControl = e.target.checked;
+        });
+
+        elements.noiseSuppression.addEventListener('change', (e) => {
+            audioConstraints.noiseSuppression = e.target.checked;
         });
 
         // Sistema de chat
@@ -441,52 +588,139 @@
             
             // Configurar botão encerrar chamada
             elements.endCallBtn.addEventListener('click', endCall);
+            
+            // Configurar botões de chamada recebida
+            elements.acceptCallBtn.addEventListener('click', acceptIncomingCall);
+            elements.rejectCallBtn.addEventListener('click', rejectIncomingCall);
         }
 
         function setupPeerListeners() {
-            peer.on('call', async (call) => {
+            peer.on('call', (call) => {
                 // Receber chamada
+                incomingCall = call;
                 callType = call.metadata.type;
                 callPartner = call.metadata.caller;
                 
-                elements.callInfo.textContent = `${callPartner} está ${callType === 'video' ? 'chamando por vídeo' : 'chamando por áudio'}`;
-                elements.callContainer.style.display = 'flex';
-                elements.acceptCallBtn.style.display = 'block';
+                // Mostrar tela de chamada recebida
+                elements.callerInfo.textContent = callPartner;
+                elements.callType.textContent = callType === 'video' ? 'Chamada de Vídeo' : 'Chamada de Voz';
+                elements.incomingCall.style.display = 'block';
                 
-                // Configurar eventos dos botões
-                elements.acceptCallBtn.onclick = async () => {
-                    try {
-                        localStream = await navigator.mediaDevices.getUserMedia({
-                            audio: true,
-                            video: callType === 'video'
-                        });
-                        
-                        elements.localVideo.srcObject = localStream;
-                        elements.acceptCallBtn.style.display = 'none';
-                        
-                        call.answer(localStream);
-                        currentCall = call;
-                        
-                        call.on('stream', (remoteStream) => {
-                            elements.remoteVideo.srcObject = remoteStream;
-                            elements.callInfo.textContent = `Em chamada ${callType === 'video' ? 'de vídeo' : 'de áudio'} com ${callPartner}`;
-                        });
-                        
-                        call.on('close', endCall);
-                        call.on('error', (err) => {
-                            console.error('Call error:', err);
-                            showNotification('Erro na chamada');
-                            endCall();
-                        });
-                    } catch (err) {
-                        console.error('Error answering call:', err);
-                        showNotification('Erro ao atender chamada');
+                // Configurar timeout para chamada não atendida
+                callTimeout = setTimeout(() => {
+                    if (incomingCall) {
+                        rejectIncomingCall();
+                        showNotification(`Chamada de ${callPartner} não atendida`);
+                    }
+                }, 30000);
+            });
+        }
+
+        async function acceptIncomingCall() {
+            clearTimeout(callTimeout);
+            elements.incomingCall.style.display = 'none';
+            
+            try {
+                // Registrar a chamada recebida no Firebase
+                currentCallRef = callsRef.push();
+                currentCallRef.set({
+                    from: callPartner,
+                    to: currentUser,
+                    type: callType,
+                    status: 'ringing',
+                    timestamp: firebase.database.ServerValue.TIMESTAMP
+                });
+                
+                // Obter stream de mídia local com as configurações de áudio
+                localStream = await navigator.mediaDevices.getUserMedia({
+                    audio: audioConstraints,
+                    video: callType === 'video'
+                });
+                
+                elements.localVideo.srcObject = localStream;
+                
+                // Mostrar UI de chamada
+                elements.callInfo.textContent = `Em chamada com ${callPartner}`;
+                elements.callContainer.style.display = 'flex';
+                elements.audioControls.style.display = 'flex';
+                
+                // Responder à chamada
+                incomingCall.answer(localStream);
+                currentCall = incomingCall;
+                incomingCall = null;
+                
+                // Atualizar status da chamada
+                currentCallRef.update({ status: 'answered' });
+                
+                // Monitorar status da chamada
+                callListener = currentCallRef.on('value', (snapshot) => {
+                    const callData = snapshot.val();
+                    if (callData && callData.status === 'ended') {
                         endCall();
                     }
-                };
+                });
                 
-                elements.endCallBtn.onclick = endCall;
-            });
+                currentCall.on('stream', (remoteStream) => {
+                    elements.remoteVideo.srcObject = remoteStream;
+                    monitorCallQuality();
+                });
+                
+                currentCall.on('close', endCall);
+                currentCall.on('error', (err) => {
+                    console.error('Call error:', err);
+                    showNotification('Erro na chamada');
+                    endCall();
+                });
+            } catch (err) {
+                console.error('Error answering call:', err);
+                showNotification('Erro ao atender chamada');
+                endCall();
+            }
+        }
+
+        function rejectIncomingCall() {
+            clearTimeout(callTimeout);
+            if (incomingCall) {
+                incomingCall.close();
+                incomingCall = null;
+            }
+            elements.incomingCall.style.display = 'none';
+            
+            // Registrar rejeição da chamada no Firebase
+            if (callPartner) {
+                callsRef.push({
+                    from: callPartner,
+                    to: currentUser,
+                    type: callType,
+                    status: 'rejected',
+                    timestamp: firebase.database.ServerValue.TIMESTAMP
+                });
+            }
+            
+            callPartner = null;
+            callType = null;
+        }
+
+        function monitorCallQuality() {
+            let qualityCheckInterval = setInterval(() => {
+                if (!currentCall) {
+                    clearInterval(qualityCheckInterval);
+                    return;
+                }
+                
+                // Simular verificação de qualidade
+                const qualityLevels = ['Excelente', 'Boa', 'Ruim'];
+                const quality = qualityLevels[Math.floor(Math.random() * qualityLevels.length)];
+                elements.callQuality.textContent = `Qualidade: ${quality}`;
+                
+                // Cor baseada na qualidade
+                const colors = {
+                    'Excelente': 'lightgreen',
+                    'Boa': 'lightblue',
+                    'Ruim': 'orange'
+                };
+                elements.callQuality.style.color = colors[quality];
+            }, 3000);
         }
 
         function loadPublicMessages() {
@@ -534,10 +768,8 @@
                     </div>
                 `;
                 
-                // Adicionar evento de clique para chat privado
                 userEl.querySelector('span').addEventListener('click', () => startPrivateChat(user));
                 
-                // Adicionar eventos para botões de chamada
                 userEl.querySelector('.audio-call-btn').addEventListener('click', (e) => {
                     e.stopPropagation();
                     startCall(user, 'audio');
@@ -601,9 +833,9 @@
             callPartner = toUser;
             
             try {
-                // Obter stream de mídia local
+                // Obter stream de mídia local com as configurações de áudio
                 localStream = await navigator.mediaDevices.getUserMedia({
-                    audio: true,
+                    audio: audioConstraints,
                     video: type === 'video'
                 });
                 
@@ -612,7 +844,25 @@
                 // Mostrar UI de chamada
                 elements.callInfo.textContent = `Chamando ${toUser}...`;
                 elements.callContainer.style.display = 'flex';
-                elements.acceptCallBtn.style.display = 'none';
+                elements.audioControls.style.display = 'flex';
+                
+                // Registrar chamada no Firebase
+                currentCallRef = callsRef.push();
+                currentCallRef.set({
+                    from: currentUser,
+                    to: toUser,
+                    type: type,
+                    status: 'ringing',
+                    timestamp: firebase.database.ServerValue.TIMESTAMP
+                });
+                
+                // Monitorar status da chamada
+                callListener = callsRef.orderByChild('from').equalTo(toUser).on('child_added', (snapshot) => {
+                    const callData = snapshot.val();
+                    if (callData && callData.status === 'ended') {
+                        endCall();
+                    }
+                });
                 
                 // Tentar conectar via PeerJS
                 const call = peer.call(onlineUsers[toUser].peerId, localStream, {
@@ -625,9 +875,10 @@
                 currentCall = call;
                 
                 call.on('stream', (remoteStream) => {
-                    // Chamada atendida
                     elements.remoteVideo.srcObject = remoteStream;
-                    elements.callInfo.textContent = `Em chamada ${type === 'video' ? 'de vídeo' : 'de áudio'} com ${toUser}`;
+                    elements.callInfo.textContent = `Em chamada com ${toUser}`;
+                    currentCallRef.update({ status: 'answered' });
+                    monitorCallQuality();
                 });
                 
                 call.on('close', endCall);
@@ -637,6 +888,14 @@
                     endCall();
                 });
                 
+                // Timeout se a chamada não for atendida
+                setTimeout(() => {
+                    if (currentCall && elements.callInfo.textContent.includes('Chamando')) {
+                        showNotification(`${toUser} não atendeu`);
+                        endCall();
+                    }
+                }, 30000);
+                
             } catch (err) {
                 console.error('Error starting call:', err);
                 showNotification('Erro ao iniciar chamada');
@@ -645,9 +904,42 @@
         }
         
         function endCall() {
+            // Atualizar status da chamada no Firebase
+            if (currentCallRef) {
+                currentCallRef.update({ status: 'ended' });
+                
+                // Remover listener
+                if (callListener) {
+                    if (currentCallRef) {
+                        currentCallRef.off('value', callListener);
+                    } else {
+                        callsRef.off('child_added', callListener);
+                    }
+                    callListener = null;
+                }
+                
+                currentCallRef = null;
+            }
+            
             if (currentCall) {
                 currentCall.close();
                 currentCall = null;
+            }
+            
+            if (incomingCall) {
+                incomingCall.close();
+                incomingCall = null;
+            }
+            
+            // Limpar processamento de áudio
+            if (mediaStreamSource) {
+                mediaStreamSource.disconnect();
+                mediaStreamSource = null;
+            }
+            
+            if (audioContext && audioContext.state !== 'closed') {
+                audioContext.close();
+                audioContext = null;
             }
             
             if (localStream) {
@@ -656,6 +948,8 @@
             }
             
             elements.callContainer.style.display = 'none';
+            elements.audioControls.style.display = 'none';
+            elements.incomingCall.style.display = 'none';
             elements.remoteVideo.srcObject = null;
             elements.localVideo.srcObject = null;
             
