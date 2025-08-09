@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>VilorChat Ultra Pro</title>
+    <title>VilorChat Ultra Pro MAX</title>
     <style>
         :root {
             --primary: #4361ee;
@@ -712,7 +712,7 @@
 <body>
     <!-- Tela de Login -->
     <div id="login-container">
-        <h2 style="text-align: center; margin-bottom: 20px; color: var(--primary);">VilorChat Ultra Pro</h2>
+        <h2 style="text-align: center; margin-bottom: 20px; color: var(--primary);">VilorChat Ultra Pro MAX</h2>
         <input type="text" id="login-username" placeholder="Login" value="VilorCreated">
         <input type="password" id="login-password" placeholder="Senha" value="This">
         <button id="login-btn">
@@ -807,11 +807,19 @@
     <script src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"></script>
 
     <script>
-        // Configuração Firebase
+        // Configuração Firebase mínima com apenas a URL
         const firebaseConfig = {
-            databaseURL: "https://basbaskotabas-a5fb8-default-rtdb.firebaseio.com/"
+            databaseURL: "https://my-awesome-pro3ct-default-rtdb.firebaseio.com/"
         };
-        firebase.initializeApp(firebaseConfig);
+        
+        // Inicializar Firebase
+        try {
+            firebase.initializeApp(firebaseConfig);
+        } catch (e) {
+            console.error("Erro ao inicializar Firebase:", e);
+            alert("Erro ao conectar ao servidor. Por favor, recarregue a página.");
+        }
+        
         const database = firebase.database();
 
         // Variáveis globais
@@ -920,7 +928,6 @@
         // Configurar listeners para controles de áudio
         elements.noiseReduction.addEventListener('input', (e) => {
             noiseReductionLevel = parseFloat(e.target.value);
-            // Aqui você implementaria a redução de ruído real
         });
 
         elements.echoCancellation.addEventListener('change', (e) => {
@@ -941,107 +948,130 @@
         function updateAudioConstraints() {
             if (localStream) {
                 localStream.getAudioTracks().forEach(track => {
-                    track.applyConstraints(audioConstraints);
+                    track.applyConstraints(audioConstraints).catch(e => {
+                        console.error("Erro ao aplicar constraints de áudio:", e);
+                    });
                 });
             }
         }
 
         // Sistema de chat
         function initializeChat() {
-            // Inicializar PeerJS
-            peer = new Peer(currentUser.replace(/\s+/g, '') + Date.now().toString().slice(-4));
-            
-            peer.on('open', (id) => {
-                console.log('PeerJS conectado com ID:', id);
-                setupPeerListeners();
-            });
-            
-            peer.on('error', (err) => {
-                console.error('PeerJS error:', err);
-                showNotification('Erro na conexão de chamada', 'error');
-            });
+            // Inicializar PeerJS com tratamento de erro
+            try {
+                peer = new Peer(currentUser.replace(/\s+/g, '') + Date.now().toString().slice(-4));
+                
+                peer.on('open', (id) => {
+                    console.log('PeerJS conectado com ID:', id);
+                    setupPeerListeners();
+                    setupFirebase();
+                });
+                
+                peer.on('error', (err) => {
+                    console.error('PeerJS error:', err);
+                    showNotification('Erro na conexão de chamada', 'error');
+                });
+            } catch (e) {
+                console.error("Erro ao inicializar PeerJS:", e);
+                showNotification("Erro na inicialização do chat", 'error');
+            }
+        }
 
+        function setupFirebase() {
             presenceRef = database.ref('presence');
             messagesRef = database.ref('messages/public');
             privateMessagesRef = database.ref('messages/private');
             callsRef = database.ref('calls');
             typingRef = database.ref('typing');
 
-            // Registrar usuário online
-            userRef = presenceRef.push();
-            userRef.set({
-                user: currentUser,
-                online: true,
-                peerId: peer.id,
-                timestamp: firebase.database.ServerValue.TIMESTAMP,
-                status: 'online'
-            });
-            userRef.onDisconnect().update({
-                online: false,
-                status: 'offline',
-                lastSeen: firebase.database.ServerValue.TIMESTAMP
-            });
+            // Registrar usuário online com tratamento de erro
+            try {
+                userRef = presenceRef.push();
+                userRef.set({
+                    user: currentUser,
+                    online: true,
+                    peerId: peer.id,
+                    timestamp: firebase.database.ServerValue.TIMESTAMP,
+                    status: 'online'
+                });
+                
+                userRef.onDisconnect().update({
+                    online: false,
+                    status: 'offline',
+                    lastSeen: firebase.database.ServerValue.TIMESTAMP
+                }).catch(e => {
+                    console.error("Erro ao configurar onDisconnect:", e);
+                });
 
-            // Monitorar usuários online
-            presenceRef.orderByChild('online').equalTo(true).on('value', (snapshot) => {
-                onlineUsers = {};
-                snapshot.forEach(child => {
-                    const userData = child.val();
-                    if (userData.online && userData.user !== currentUser) {
-                        onlineUsers[userData.user] = {
-                            peerId: userData.peerId,
-                            status: userData.status || 'online'
-                        };
+                // Monitorar usuários online
+                presenceRef.orderByChild('online').equalTo(true).on('value', (snapshot) => {
+                    onlineUsers = {};
+                    snapshot.forEach(child => {
+                        const userData = child.val();
+                        if (userData.online && userData.user !== currentUser) {
+                            onlineUsers[userData.user] = {
+                                peerId: userData.peerId,
+                                status: userData.status || 'online'
+                            };
+                        }
+                    });
+                    updateUserList();
+                }, (error) => {
+                    console.error("Erro ao monitorar usuários:", error);
+                });
+
+                // Monitorar digitação
+                typingRef.on('child_added', (snapshot) => {
+                    const typingData = snapshot.val();
+                    if (typingData.to === currentUser && typingData.from !== currentUser) {
+                        otherUserTyping = typingData.from;
+                        updateTypingIndicator();
+                    }
+                }, (error) => {
+                    console.error("Erro ao monitorar digitação:", error);
+                });
+
+                typingRef.on('child_removed', (snapshot) => {
+                    const typingData = snapshot.val();
+                    if (typingData.to === currentUser && typingData.from === otherUserTyping) {
+                        otherUserTyping = null;
+                        updateTypingIndicator();
                     }
                 });
-                updateUserList();
-            });
 
-            // Monitorar digitação
-            typingRef.on('child_added', (snapshot) => {
-                const typingData = snapshot.val();
-                if (typingData.to === currentUser && typingData.from !== currentUser) {
-                    otherUserTyping = typingData.from;
-                    updateTypingIndicator();
-                }
-            });
-
-            typingRef.on('child_removed', (snapshot) => {
-                const typingData = snapshot.val();
-                if (typingData.to === currentUser && typingData.from === otherUserTyping) {
-                    otherUserTyping = null;
-                    updateTypingIndicator();
-                }
-            });
-
-            // Carregar mensagens
-            loadPublicMessages();
-
-            // Enviar mensagem
-            document.getElementById('send-btn').addEventListener('click', sendMessage);
-            elements.msgInput.addEventListener('keydown', handleTyping);
-            elements.msgInput.addEventListener('keypress', e => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault();
-                    sendMessage();
-                }
-            });
-
-            // Botão voltar ao chat público
-            elements.backToPublic.addEventListener('click', () => {
-                currentChat = 'public';
-                privateChatWith = null;
-                elements.chatTitle.textContent = 'Chat Público';
-                elements.backToPublic.style.display = 'none';
+                // Carregar mensagens
                 loadPublicMessages();
-            });
-            
-            // Configurar botão encerrar chamada
-            elements.endCallBtn.addEventListener('click', endCall);
-            
-            // Configurar botões de chamada recebida
-            elements.acceptCallBtn.addEventListener('click', acceptIncomingCall);
-            elements.rejectCallBtn.addEventListener('click', rejectIncomingCall);
+
+                // Enviar mensagem
+                document.getElementById('send-btn').addEventListener('click', sendMessage);
+                elements.msgInput.addEventListener('keydown', handleTyping);
+                elements.msgInput.addEventListener('keypress', e => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        sendMessage();
+                    }
+                });
+
+                // Botão voltar ao chat público
+                elements.backToPublic.addEventListener('click', () => {
+                    currentChat = 'public';
+                    privateChatWith = null;
+                    elements.chatTitle.textContent = 'Chat Público';
+                    elements.backToPublic.style.display = 'none';
+                    loadPublicMessages();
+                });
+                
+                // Configurar botão encerrar chamada
+                elements.endCallBtn.addEventListener('click', endCall);
+                
+                // Configurar botões de chamada recebida
+                elements.acceptCallBtn.addEventListener('click', acceptIncomingCall);
+                elements.rejectCallBtn.addEventListener('click', rejectIncomingCall);
+
+            } catch (e) {
+                console.error("Erro ao configurar Firebase:", e);
+                showNotification("Erro na conexão com o servidor", 'error');
+            }
         }
 
         function handleTyping(e) {
